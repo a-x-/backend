@@ -7,7 +7,7 @@
 namespace Invntrm;
 
 define('ROOT', $_SERVER['DOCUMENT_ROOT'] . '/');
-define('SRV', ROOT . 'srv-src/');
+define('SRV', ROOT . '_ass/');
 
 ///**
 // * @param $className
@@ -74,7 +74,7 @@ function getDirList($path, $excludeMimes = array(), $isDebug = false)
  */
 function _d($text)
 {
-    file_put_contents(ROOT . 'logs/check.log', "\n" . date(DATE_RSS). '>' . \Invntrm\varDumpRet($text), FILE_APPEND);
+    file_put_contents(ROOT . '_logs/check.log', "\n" . date(DATE_RSS). '>' . \Invntrm\varDumpRet($text), FILE_APPEND);
 }
 
 /**
@@ -83,7 +83,7 @@ function _d($text)
  */
 function bugReport2($type, $text)
 {
-    file_put_contents(ROOT . 'logs/error.log', "\n" . date(DATE_RSS). '>' . $type . '>' . $text, FILE_APPEND);
+    file_put_contents(ROOT . '_logs/error.log', "\n" . date(DATE_RSS). '>' . $type . '>' . $text, FILE_APPEND);
 }
 
 function getFileInfo($filePath, $typeInfo = FILEINFO_MIME_TYPE)
