@@ -24,31 +24,153 @@ function getFNameStamp($fileMame, $isPathRewriteActive = false)
 
 /**
  *
- * Substitution available variables in placeholders in $template
- * Absolutely none global now (tanks to lambdas)!
- * @param $template                  string                         Aim text
- * @param $vars                      array of mixed                 Variables' array
- * @param $specialValuesForKeyValues array of tuple<string,string>  Example: array('img' => array('', '../media/none.png'))
- *                                   ,                              {needleKey => [needleValue, replacementValue],,,}
- * @return                           string                         Result
+ * Substitution variables into placeholders in the $template
+ * @param string $template          - Target text
+ * @param array(mixed)[] $vars      - Set of variables
+ * @return          string          - Specified result
  */
-function specifyTemplate($template, $vars, $specialValuesForKeyValues = array())
+function specifyTemplate($template, $vars)
 {
     return preg_replace_callback('/%([a-z_\-]+?)%/i',
-        function ($matches) use ($vars, $specialValuesForKeyValues) {
+        function ($matches) use ($vars) {
+            return (isset($vars[$matches[1]])) ? $vars[$matches[1]] : '';
+        },
+        $template
+    );
+}
+
+function buildPage ($path, $params = []){
+    if(!$path)
+        header('Location: /404');
+    $defaultPrefix = '/_views';
+    list($template, $pageDir) = getFileContent($path, 'html', $defaultPrefix);
+    $out = $template;
+    $pageObject = get_require($path); // try execute template's logic
+    $params = array_merge($params, $pageObject); // add page php script given object
+    $params = array_merge($params, get_defined_constants()); // add constants
+    $params = array_merge($params, $_SERVER); // add server constants
+    $params = array_merge($params, $_REQUEST); // add server constants
+    $paramMapping = (isset($pageObject['_PARAM_MAPPING_'])) ? $pageObject['_PARAM_MAPPING_'] : [];
+    if(isset($pageObject['_STOP_'])) {
+        $stopRef = $pageObject['_STOP_']; // ref to redirect page or null for 404
+        header("Location: $stopRef");
+    }
+    //
+    // Replace recursive call placeholders
+    $out = preg_replace_callback('/@([a-z_\-\/]+?)@/i',
+        function ($matches) use ($params, $pageDir,$defaultPrefix) {
+            $match = $matches[1];
+            if(!$pageDir || preg_match('!^/!',$match)) // if pageDir isn't set OR @placeholder@ start with /, than decide match absolute
+                $pageDir = ROOT . $defaultPrefix;
+            else
+                $pageDir = "$pageDir/";
+            buildPage($pageDir . $matches[1], $params);
+        },
+        $out
+    );
+    $out = specifyTemplateExtended($out,$params, $paramMapping);
+    return $out;
+}
+
+
+/**
+ *
+ * Substitution variables into placeholders in the $template
+ * @param string $template          - Target text
+ * @param array(mixed)[] $vars      - Set of variables
+ * @param array     $paramMapping
+ * @return          string          - Specified result
+ */
+function specifyTemplateExtended($template, $vars = [], $paramMapping = [])
+{
+    $out = $template;
+    //
+    // Replace simple variable placeholders
+    $out = preg_replace_callback('/%([a-z_\-]+?)%/i',
+        function ($matches) use ($vars, $paramMapping) {
             if (
-                $specialValuesForKeyValues &&
-                array_key_exists($matches[1] /*needle var`s Name*/, $specialValuesForKeyValues) &&
-                $vars[$matches[1]] /*needle var`s Value*/ == $specialValuesForKeyValues[$matches[1]][0] /*replacement Value*/
+                $paramMapping
+                && array_key_exists(
+                    $matches[1] /*needle var`s Name*/,
+                    $paramMapping
+                )
+                && $vars[$matches[1]] /*needle var`s Value*/
+                == $paramMapping[$matches[1]][0] /*replacement Value*/
             )
-                return $specialValuesForKeyValues[$matches[1]][1];
+                return $paramMapping[$matches[1]][1];
             if (!isset($vars[$matches[1]])) {
                 bugReport2("specifyTemplate()", " placeholder '$matches[1]' haven't value");
                 return '';
             } else return $vars[$matches[1]];
         },
-        $template
+        $out
     );
+    //
+    // Replace parametrized variable placeholders
+    $out = preg_replace_callback(
+        '/%%([a-z_\-]+?)\[([a-z_\-]+?)\]%%/i',
+        function ($matches) use ($vars, $paramMapping) {
+            if (!isset($vars[$matches[1]]) || !isset($vars[$matches[1]][$matches[2]])) {
+                bugReport2("specifyTemplate()", "placeholder '[ $matches[1] ][ $matches[2] ]' haven't value");
+                return '';
+            } else
+                return $vars[$matches[1]][$matches[2]];
+        }
+        , $out
+    );
+    return $out;
+}
+
+/**
+ * @param $fileName__filePath
+ * @param $defaultExtension
+ * @param $defaultPrefix
+ * @return array|string
+ */
+function getFileContent($fileName__filePath, $defaultExtension, $defaultPrefix)
+{
+    $filePath = '';
+    if (preg_match('!^\/[^\n]+$!', $fileName__filePath)) { // Load file if path present
+        $filePath = $fileName__filePath;
+        if (!preg_match('!'.$defaultPrefix.'!',$filePath)) {
+            $filePath = ROOT . $defaultPrefix . $filePath;
+        }
+        //
+        // Add extension by default if no set
+        if (!preg_match('!\.!', preg_replace('!^.+/!m', '', $filePath))) {
+            $filePath = preg_replace('!/$!','',$filePath);
+            $filePath .= '.' . ($defaultExtension ? $defaultExtension : 'html');
+        }
+        $template = file_get_contents($filePath);
+    } else {
+        $template = $fileName__filePath;
+    }
+    return [$template, dirname($filePath)];
+}
+
+
+/**
+ * Node.js like require function.
+ * @example $fs = require('fs');
+ * @example fs.php: $exports = []; $exports['read'] = function (name){...}
+ * @param $phpFileName
+ * @param $prefix
+ * @param bool $isStrict
+ * @return array
+ */
+function get_require($phpFileName, $prefix = null, $isStrict = false)
+{
+    if($prefix === null) $prefix = ROOT . '_views/';
+    $phpFileName = $prefix . preg_replace('!/$!','',$phpFileName) . '.php';
+    if ($isStrict) {
+        require($phpFileName);
+    } else {
+        @include($phpFileName);
+    }
+    if (isset($exports))
+        return $exports;
+    else
+        return [];
 }
 
 function getDirList($path, $excludeMimes = array(), $isDebug = false)
@@ -74,7 +196,7 @@ function getDirList($path, $excludeMimes = array(), $isDebug = false)
  */
 function _d($text)
 {
-    file_put_contents(ROOT . '_logs/check.log', "\n" . date(DATE_RSS). '>' . \Invntrm\varDumpRet($text), FILE_APPEND);
+    file_put_contents(ROOT . '_logs/check.log', "\n" . date(DATE_RSS) . '>' . \Invntrm\varDumpRet($text), FILE_APPEND);
 }
 
 /**
@@ -83,13 +205,13 @@ function _d($text)
  */
 function bugReport2($type, $text)
 {
-    file_put_contents(ROOT . '_logs/error.log', "\n" . date(DATE_RSS). '>' . $type . '>' . $text, FILE_APPEND);
+    file_put_contents(ROOT . '_logs/error.log', "\n" . date(DATE_RSS) . '>' . $type . '>' . $text, FILE_APPEND);
 }
 
 function getFileInfo($filePath, $typeInfo = FILEINFO_MIME_TYPE)
 {
-    $fInfo = new finfo();
-    $fInfoResult = $fInfo->file($filePath, $typeInfo);
+    $fInfo = finfo_open();
+    $fInfoResult = fInfo_file($fInfo, $filePath, $typeInfo);
     return $fInfoResult;
 }
 
@@ -274,10 +396,10 @@ function mailSend($projectName, $projectMails, $theme, $data, $isUserCopy)
     //
     // Recipients
     $ownEmail = $projectMails['destination']
-        . ($isUserCopy && isset($data['userMail']) ? ','.$data['userMail'] : '');
+        . ($isUserCopy && isset($data['userMail']) ? ',' . $data['userMail'] : '');
     //
     // Message subject
-    $uniqueId = uniqid('#',true);
+    $uniqueId = uniqid('#', true);
     $subject = "$projectName/ $theme $uniqueId";
     //
     // MIME message type
