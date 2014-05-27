@@ -43,7 +43,6 @@ function parseMetaPage($str)
 {
     $rawPage = (get_preg_match('!^(.*?)\r?\n\r?(?:\r?\n)+\s*(.*)$!s', $str));
     if (!count($rawPage)) {
-        _d([1,[],$str]);
         return [[], $str];
     }
     list($meta, $body) = $rawPage;
@@ -52,7 +51,6 @@ function parseMetaPage($str)
         $metaLine = get_preg_match('!^(.*?)\s*:\s*(.*)$!', $metaLine);
     }
     $meta = akv2okv($metaLines);
-    _d([2,$meta, $body,]);
     return [$meta, $body,];
 }
 
@@ -62,9 +60,7 @@ function buildPage($path, $params = [])
         header('Location: /404');
     $defaultPrefix = '/_views';
     list($templateWithMeta, $pageDir) = getFileContent($path, 'html', $defaultPrefix);
-    _d([-1,$templateWithMeta, $pageDir]);
     list($meta, $template) = parseMetaPage($templateWithMeta);
-    _d([$meta,$template]);
     $out = $template;
     $pageObject = get_require($path); // try execute template's logic
     $params = array_merge($params, $pageObject); // add page php script given object
