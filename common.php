@@ -63,10 +63,15 @@ function buildPage($path, $params = [])
     list($meta, $template) = parseMetaPage($templateWithMeta);
     $out = $template;
     $pageObject = get_require($path); // try execute template's logic
+    $css = getCss($path); // add css
+    $css = "<style>/* $path */".$css."</style>\n";
+    if(!isset($params['styles'])) {$params['styles'] = $css;}
+    else { $params['styles'] .= $css; }
     $params = array_merge($params, $pageObject); // add page php script given object
     $params = array_merge($params, get_defined_constants()); // add constants
     $params = array_merge($params, $_SERVER); // add server constants
     $params = array_merge($params, $_REQUEST); // add server constants
+    $params = array_merge($params, $_SESSION); // add server constants
     $paramMapping = (isset($pageObject['_PARAM_MAPPING_'])) ? $pageObject['_PARAM_MAPPING_'] : [];
     if (isset($pageObject['_STOP_'])) {
         $stopRef = $pageObject['_STOP_']; // ref to redirect page or null for 404
@@ -143,6 +148,8 @@ function specifyTemplateExtended($template, $vars = [], $paramMapping = [])
 }
 
 /**
+ * @example getFileContent('/profile','html','/path') -> content of /path/profile.html
+ * @example getFileContent('... content ...') -> ... content ...
  * @param $fileName__filePath
  * @param $defaultExtension
  * @param $defaultPrefix
@@ -151,9 +158,12 @@ function specifyTemplateExtended($template, $vars = [], $paramMapping = [])
 function getFileContent($fileName__filePath, $defaultExtension, $defaultPrefix)
 {
     $filePath = '';
-    if (preg_match('!^\/[^\n]+$!', $fileName__filePath)) { // Load file if path present
+    if (preg_match('!^\/[^\n]*$!', $fileName__filePath)) { // Load file if path present
         $filePath = $fileName__filePath;
         if (!preg_match('!' . $defaultPrefix . '!', $filePath)) {
+            if($filePath == '/') {
+                $filePath = '/_start';
+            }
             $filePath = ROOT . $defaultPrefix . $filePath;
         }
         //
@@ -192,6 +202,19 @@ function get_require($phpFileName, $prefix = null, $isStrict = false)
         return $exports;
     else
         return [];
+}
+
+function getCss ($path, $prefix = null, $isStrict = false){
+    if ($prefix === null) $prefix = ROOT . '_views/';
+    $path = $prefix . preg_replace('!/$!', '', $path) . '.css';
+    $isFileExist = is_file($path);
+    if ($isStrict) if (!$isFileExist) {
+        return false;
+    }
+    if($isFileExist)
+        return file_get_contents($path);
+    else
+        return '';
 }
 
 function getDirList($path, $excludeMimes = array(), $isDebug = false)
