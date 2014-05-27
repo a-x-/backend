@@ -25,8 +25,8 @@ function getFNameStamp($fileMame, $isPathRewriteActive = false)
 /**
  *
  * Substitution variables into placeholders in the $template
- * @param string $template          - Target text
- * @param array(mixed)[] $vars      - Set of variables
+ * @param string $template - Target text
+ * @param array (mixed)[] $vars      - Set of variables
  * @return          string          - Specified result
  */
 function specifyTemplate($template, $vars)
@@ -39,11 +39,32 @@ function specifyTemplate($template, $vars)
     );
 }
 
-function buildPage ($path, $params = []){
-    if(!$path)
+function parseMetaPage($str)
+{
+    $rawPage = (get_preg_match('!^(.*?)\r?\n\r?(?:\r?\n)+\s*(.*)$!s', $str));
+    if (!count($rawPage)) {
+        _d([1,[],$str]);
+        return [[], $str];
+    }
+    list($meta, $body) = $rawPage;
+    $metaLines = preg_split('!\s*\r?\n\s*!', $meta);
+    foreach ($metaLines as &$metaLine) {
+        $metaLine = get_preg_match('!^(.*?)\s*:\s*(.*)$!', $metaLine);
+    }
+    $meta = akv2okv($metaLines);
+    _d([2,$meta, $body,]);
+    return [$meta, $body,];
+}
+
+function buildPage($path, $params = [])
+{
+    if (!$path)
         header('Location: /404');
     $defaultPrefix = '/_views';
-    list($template, $pageDir) = getFileContent($path, 'html', $defaultPrefix);
+    list($templateWithMeta, $pageDir) = getFileContent($path, 'html', $defaultPrefix);
+    _d([-1,$templateWithMeta, $pageDir]);
+    list($meta, $template) = parseMetaPage($templateWithMeta);
+    _d([$meta,$template]);
     $out = $template;
     $pageObject = get_require($path); // try execute template's logic
     $params = array_merge($params, $pageObject); // add page php script given object
@@ -51,16 +72,16 @@ function buildPage ($path, $params = []){
     $params = array_merge($params, $_SERVER); // add server constants
     $params = array_merge($params, $_REQUEST); // add server constants
     $paramMapping = (isset($pageObject['_PARAM_MAPPING_'])) ? $pageObject['_PARAM_MAPPING_'] : [];
-    if(isset($pageObject['_STOP_'])) {
+    if (isset($pageObject['_STOP_'])) {
         $stopRef = $pageObject['_STOP_']; // ref to redirect page or null for 404
         header("Location: $stopRef");
     }
     //
     // Replace recursive call placeholders
     $out = preg_replace_callback('/@([a-z_\-\/]+?)@/i',
-        function ($matches) use ($params, $pageDir,$defaultPrefix) {
+        function ($matches) use ($params, $pageDir, $defaultPrefix) {
             $match = $matches[1];
-            if(!$pageDir || preg_match('!^/!',$match)) // if pageDir isn't set OR @placeholder@ start with /, than decide match absolute
+            if (!$pageDir || preg_match('!^/!', $match)) // if pageDir isn't set OR @placeholder@ start with /, than decide match absolute
                 $pageDir = ROOT . $defaultPrefix;
             else
                 $pageDir = "$pageDir/";
@@ -68,17 +89,21 @@ function buildPage ($path, $params = []){
         },
         $out
     );
-    $out = specifyTemplateExtended($out,$params, $paramMapping);
-    return $out;
+    $out = specifyTemplateExtended($out, $params, $paramMapping);
+    if (isset($meta['base'])) { // if base tpl is declared
+        $params['content'] = $out;
+        return buildPage($meta['base'], $params);
+    } else
+        return $out;
 }
 
 
 /**
  *
  * Substitution variables into placeholders in the $template
- * @param string $template          - Target text
- * @param array(mixed)[] $vars      - Set of variables
- * @param array     $paramMapping
+ * @param string $template - Target text
+ * @param array (mixed)[] $vars      - Set of variables
+ * @param array $paramMapping
  * @return          string          - Specified result
  */
 function specifyTemplateExtended($template, $vars = [], $paramMapping = [])
@@ -132,13 +157,13 @@ function getFileContent($fileName__filePath, $defaultExtension, $defaultPrefix)
     $filePath = '';
     if (preg_match('!^\/[^\n]+$!', $fileName__filePath)) { // Load file if path present
         $filePath = $fileName__filePath;
-        if (!preg_match('!'.$defaultPrefix.'!',$filePath)) {
+        if (!preg_match('!' . $defaultPrefix . '!', $filePath)) {
             $filePath = ROOT . $defaultPrefix . $filePath;
         }
         //
         // Add extension by default if no set
         if (!preg_match('!\.!', preg_replace('!^.+/!m', '', $filePath))) {
-            $filePath = preg_replace('!/$!','',$filePath);
+            $filePath = preg_replace('!/$!', '', $filePath);
             $filePath .= '.' . ($defaultExtension ? $defaultExtension : 'html');
         }
         $template = file_get_contents($filePath);
@@ -160,8 +185,8 @@ function getFileContent($fileName__filePath, $defaultExtension, $defaultPrefix)
  */
 function get_require($phpFileName, $prefix = null, $isStrict = false)
 {
-    if($prefix === null) $prefix = ROOT . '_views/';
-    $phpFileName = $prefix . preg_replace('!/$!','',$phpFileName) . '.php';
+    if ($prefix === null) $prefix = ROOT . '_views/';
+    $phpFileName = $prefix . preg_replace('!/$!', '', $phpFileName) . '.php';
     if ($isStrict) {
         require($phpFileName);
     } else {
