@@ -95,7 +95,7 @@ function buildPage($path, $params_origin = [])
                 $pageDir = ROOT . $defaultPrefix;
             else
                 $pageDir = "$pageDir/";
-            buildPage($pageDir . $matches[1], $params);
+            return buildPage($pageDir . $matches[1], $params);
         },
         $out
     );
