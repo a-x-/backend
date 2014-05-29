@@ -8,6 +8,7 @@ namespace Invntrm;
 
 define('ROOT', $_SERVER['DOCUMENT_ROOT'] . '/');
 define('SRV', ROOT . '_ass/');
+$C = function($a){ return $a; };
 
 ///**
 // * @param $className
@@ -261,6 +262,13 @@ function bugReport2($type, $text)
     file_put_contents(ROOT . '_logs/error.log', "\n" . date(DATE_RSS) . '>' . $type . '>' . $text, FILE_APPEND);
 }
 
+/**
+ * @example getFileInfo('me.svg') -> 'image/svg+xml'
+ * @example getFileInfo('end.css') -> false // end.css is not exist
+ * @param $filePath
+ * @param int $typeInfo - http://www.php.net/manual/en/fileinfo.constants.php
+ * @return mixed
+ */
 function getFileInfo($filePath, $typeInfo = FILEINFO_MIME_TYPE)
 {
     $fInfo = finfo_open();
@@ -281,11 +289,12 @@ function json_decode_file($path)
 
 /**
  * Вычислить значение многомерного массива, ключ которого задан строкой key1.key2.key3. ... keyN
+ * @example evalArrayByPath('a.b.c',[a=>[b=>[c=>1]]]) -> 1
  * @param $path
  * @param $root
  * @return mixed|bool
  */
-function evalDeepArrayPath($path, $root)
+function evalArrayByPath($path, $root)
 {
     $dirs = preg_split('/\./', $path);
     for ($i = 0, $l = count($dirs); $i < $l; ++$i) {
@@ -303,9 +312,9 @@ function evalDeepArrayPath($path, $root)
  * @param $value string
  * @return string
  */
-function specializeMask($mask, $placeholder, $value)
+function specializeMask2($mask, $placeholder, $value)
 {
-    return str_replace('%%' . $placeholder . '%%', $value, $mask);
+    return str_replace('%' . $placeholder . '%', $value, $mask);
 }
 
 /**
@@ -424,16 +433,22 @@ function akv2okv($numberingArray)
     return $associatedArray;
 }
 
-function hruDump($object)
+/**
+ * Get associative array in human readable form
+ * @param $array
+ * @return string
+ */
+function hruDump($array)
 {
     $out = '';
-    foreach ($object as $i => $el) {
+    foreach ($array as $i => $el) {
         $out .= "<p><b>$i:</b> $el\n";
     }
     return $out;
 }
 
 /**
+ * @deprecated have to use PHPMailer based solutions
  * @param $projectName
  * @param $projectMails array - Should contains [mailer, destination]
  * @param $theme
@@ -473,17 +488,23 @@ function mailSend($projectName, $projectMails, $theme, $data, $isUserCopy)
 }
 
 
-// Generates a strong password of N length containing at least one lower case letter,
-// one uppercase letter, one digit, and one special character. The remaining characters
-// in the password are chosen at random from those four sets.
-//
-// The available characters in each set are user friendly - there are no ambiguous
-// characters such as i, l, 1, o, 0, etc. This, coupled with the $add_dashes option,
-// makes it much easier for users to manually type or speak their passwords.
-//
-// Note: the $add_dashes option will increase the length of the password by
-// floor(sqrt(N)) characters.
-
+/**
+ * Generates a strong password of N length containing at least one lower case letter,
+ * one uppercase letter, one digit, and one special character. The remaining characters
+ * in the password are chosen at random from those four sets.
+ *
+ * The available characters in each set are user friendly - there are no ambiguous
+ * characters such as i, l, 1, o, 0, etc. This, coupled with the $add_dashes option,
+ * makes it much easier for users to manually type or speak their passwords.
+ *
+ * Note: the $add_dashes option will increase the length of the password by
+ * floor(sqrt(N)) characters.
+ *
+ * @param int $length
+ * @param bool $add_dashes
+ * @param string $available_sets - {l:a-z,  u:A-Z,  d:2-9,  s:specials}
+ * @return string
+ */
 function generateStrongPassword($length = 9, $add_dashes = false, $available_sets = 'luds')
 {
     $sets = array();
@@ -522,4 +543,32 @@ function generateStrongPassword($length = 9, $add_dashes = false, $available_set
     }
     $dash_str .= $password;
     return $dash_str;
+}
+
+
+/**
+ * Simplify array structure
+ * @example [] -> null
+ * @example [[]] -> null
+ * @example [[1]] -> 1
+ * @example [[1],[]] -> [1,null]
+ * @example [[[1]],2] -> [1,2]
+ *          etc...
+ *
+ * @param $arr
+ * @return array|null
+ */
+function recursiveDegenerateArrOptimize($arr)
+{
+    if (is_array($arr)) {
+        foreach ($arr as $arr_key => $arr_val) {
+            $arr[$arr_key] = recursiveDegenerateArrOptimize($arr_val);
+        }
+        if (count($arr) === 1)
+            foreach ($arr as $arr_val)
+                $arr = $arr_val;
+        elseif (!count($arr))
+            $arr = null;
+    }
+    return $arr;
 }

@@ -11,8 +11,7 @@
  * It uses mysqli driver
  */
 
-require_once('_.php');
-
+require_once 'common.php';
 /**
  * Class Mq_Mode is  class Mq internal ENUM
  */
@@ -49,7 +48,7 @@ function Mq($schemeName = '', $x = false, $isLoggingNeed = false)
     $this->isLoggingRequire = $isLoggingNeed;
     $this->x = $x;
     $this->schemeName = $schemeName;
-    if (!$schemeName) $schemeName = ___("SCHEME_NAME_DEFAULT"); // По умолчанию берётся из settings.ini
+    if (!$schemeName) $schemeName = SCHEME_NAME_DEFAULT; // По умолчанию берётся из settings.ini
     $this->hndl = new mysqli(); // Параметры устанавливаются из php-conf
     $this->hndl->real_connect();
     $this->hndl->select_db($schemeName);
@@ -70,7 +69,7 @@ function reqPreprocessor($req)
         return file_get_contents("sql-reqs/$matches[1].sql");
     },$req);
     $req = preg_replace('!\[(?:SCHEME_NAME|TABLE_SCHEMA)\]!', '"' . $this->schemeName . '"', $req); // Название "базы данных" (в терминах mySQL)
-    $req = preg_replace('!\[SCHEME_NAME_DEFAULT\]!', '"' . ___("SCHEME_NAME_DEFAULT") . '"', $req); // Название "базы данных" (в терминах mySQL)
+    $req = preg_replace('!\[SCHEME_NAME_DEFAULT\]!', '"' . SCHEME_NAME_DEFAULT . '"', $req); // Название "базы данных" (в терминах mySQL)
 
     return $req;
 }
@@ -264,8 +263,8 @@ function newQQ($req, $sigma = "", $params = array(), $isHeuristicsNeed = true /*
         return false;
 
     for ($i = 0; $tmp = $res->fetch_array(MYSQLI_ASSOC); $i++) $row[$i] = $tmp;
-    if ($isHeuristicsNeed) $row = recursiveDegenerateArrOptimize($row);
-    if ($isLoggingRequire) $this->messageLog("<b>sqlResult: </b>" . varDumpRet($row));
+    if ($isHeuristicsNeed) $row = \Invntrm\recursiveDegenerateArrOptimize($row);
+    if ($isLoggingRequire) $this->messageLog("<b>sqlResult: </b>" . \Invntrm\varDumpRet($row));
 
     return $row;
 }
@@ -281,13 +280,13 @@ function newQQ($req, $sigma = "", $params = array(), $isHeuristicsNeed = true /*
      * Наличие полей в обрабатываемых таблицах проверяется, если это необходимо (необходимо наличие information_schema)
      * * Добавление |.: (ASC) или |:. (DESC) в конец позволяет отсортировать результаты SELECT-запроса
      *
-     * TODO внедрить пересечения по свойству (пересечение классов, при котором один из классов выступает задаваемым свойством другого) // page[@prod=main] page, являющаяся main для prod
-     * TODO кстати сделать автоматическое формирование умной структуры данных для конструкции пересечения по свойству {page1:{prop1,,,prod:{prep1,,,}},,,}
+     * @TODO внедрить пересечения по свойству (пересечение классов, при котором один из классов выступает задаваемым свойством другого) // page[@prod=main] page, являющаяся main для prod
+     * @TODO кстати сделать автоматическое формирование умной структуры данных для конструкции пересечения по свойству {page1:{prop1,,,prod:{prep1,,,}},,,}
      *
-     * TODO внедрить следование (один класс выступает родительским для другого, при этом для их связывания испрользуется поле дочернего класса родКласс_id) // prod \\ theme \\ video
-     * TODO кстати сделать автоматическое формирование умной структуры данных для конструкции следования {prod1:{theme1:{videoName1:{prop1,,,},,,},,,},,,}
+     * @TODO внедрить следование (один класс выступает родительским для другого, при этом для их связывания испрользуется поле дочернего класса родКласс_id) // prod \\ theme \\ video
+     * @TODO кстати сделать автоматическое формирование умной структуры данных для конструкции следования {prod1:{theme1:{videoName1:{prop1,,,},,,},,,},,,}
      *
-     * TODO если у класса определено поле (поле в таблице бд) name использовать его для формирования ассоциативного массива-результата вместо обычного упорядоченного перечисления
+     * @TODO если у класса определено поле (поле в таблице бд) name использовать его для формирования ассоциативного массива-результата вместо обычного упорядоченного перечисления
      *
      * @example user[nm='alx']?pic                      SELECT
      * @example user[n=1&&L=2]?pic|:.orderCol           SELECT with ORDER BY orderCol DESC
@@ -443,7 +442,7 @@ private function parseAlxMqSyntax($reqLine, $isLoggingRequire = false)
     private function errorLog($errMsg = '', $force = true)
     {
         $driverErr = $this->checkDriverError();
-        if ($force || $driverErr) bugReport("$driverErr ($errMsg)", $this->x); // сделать запись если произошли ошибки или если $force=true (даже, если ошибок не было или если они были)
+        if ($force || $driverErr) \Invntrm\bugReport2('Mq',"$driverErr ($errMsg)"); // сделать запись если произошли ошибки или если $force=true (даже, если ошибок не было или если они были)
         return $driverErr;
     }
 
@@ -454,7 +453,7 @@ private function parseAlxMqSyntax($reqLine, $isLoggingRequire = false)
     private function messageLog($dbgMsg = '')
     {
         if (!$this->errorLog($dbgMsg)) // Действительно сделать запись в ИНФО лог, но только если не было ошибок
-            infoReport('[DEBUG_LOG] ' . $dbgMsg, $this->x);
+            \Invntrm\_d('[DEBUG_LOG] ' . $dbgMsg);
     }
 
     /**
