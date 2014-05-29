@@ -54,27 +54,36 @@ function parseMetaPage($str)
     return [$meta, $body,];
 }
 
-function buildPage($path, $params = [])
+function buildPage($path, $params_origin = [])
 {
-    if (!$path)
-        header('Location: /404');
+    if (!$path) { buildPage('/404/'); }
     $defaultPrefix = '/_views';
     list($templateWithMeta, $pageDir) = getFileContent($path, 'html', $defaultPrefix);
+    if($templateWithMeta === false) {
+        return buildPage('/404/');
+    }
     list($meta, $template) = parseMetaPage($templateWithMeta);
     $out = $template;
     $pageObject = get_require($path); // try execute template's logic
     $css = getCss($path); // add css
     $css = "<style>/* $path */".$css."</style>\n";
+    //
+    $params = [];
+    $params = array_merge($params, $_REQUEST);              // 5 DANGEROUS  add server constants
+    $params = array_merge($params, $_SESSION);              // 4 UNTRUST    add server constants
+    $params = array_merge($params, $_SERVER);               // 3 UNTRUST    add server constants
+    $params = array_merge($params, get_defined_constants());// 2 TRUST      add constants
+    $params = array_merge($params, $pageObject);            // 1 TRUST      add page php script given object
+    $params = array_merge($params, $params_origin);         // 0 TRUST      add page call params
+    //
+    $paramMapping = (isset($pageObject['_PARAM_MAPPING_'])) ? $pageObject['_PARAM_MAPPING_'] : [];
     if(!isset($params['styles'])) {$params['styles'] = $css;}
     else { $params['styles'] .= $css; }
-    $params = array_merge($params, $pageObject); // add page php script given object
-    $params = array_merge($params, get_defined_constants()); // add constants
-    $params = array_merge($params, $_SERVER); // add server constants
-    $params = array_merge($params, $_REQUEST); // add server constants
-    $params = array_merge($params, $_SESSION); // add server constants
-    $paramMapping = (isset($pageObject['_PARAM_MAPPING_'])) ? $pageObject['_PARAM_MAPPING_'] : [];
     if (isset($pageObject['_STOP_'])) {
         $stopRef = $pageObject['_STOP_']; // ref to redirect page or null for 404
+        if(!$stopRef) {
+            buildPage('/404/');
+        }
         header("Location: $stopRef");
     }
     //
@@ -125,7 +134,7 @@ function specifyTemplateExtended($template, $vars = [], $paramMapping = [])
             )
                 return $paramMapping[$matches[1]][1];
             if (!isset($vars[$matches[1]])) {
-                bugReport2("specifyTemplate()", " placeholder '$matches[1]' haven't value");
+                #bugReport2("specifyTemplate()", " placeholder '$matches[1]' haven't value");
                 return '';
             } else return $vars[$matches[1]];
         },
@@ -463,3 +472,54 @@ function mailSend($projectName, $projectMails, $theme, $data, $isUserCopy)
     return (mail($ownEmail, $subject, $msg, $headers));
 }
 
+
+// Generates a strong password of N length containing at least one lower case letter,
+// one uppercase letter, one digit, and one special character. The remaining characters
+// in the password are chosen at random from those four sets.
+//
+// The available characters in each set are user friendly - there are no ambiguous
+// characters such as i, l, 1, o, 0, etc. This, coupled with the $add_dashes option,
+// makes it much easier for users to manually type or speak their passwords.
+//
+// Note: the $add_dashes option will increase the length of the password by
+// floor(sqrt(N)) characters.
+
+function generateStrongPassword($length = 9, $add_dashes = false, $available_sets = 'luds')
+{
+    $sets = array();
+    if(strpos($available_sets, 'l') !== false)
+        $sets[] = 'abcdefghjkmnpqrstuvwxyz';
+    if(strpos($available_sets, 'u') !== false)
+        $sets[] = 'ABCDEFGHJKMNPQRSTUVWXYZ';
+    if(strpos($available_sets, 'd') !== false)
+        $sets[] = '23456789';
+    if(strpos($available_sets, 's') !== false)
+        $sets[] = '!@#$%&*?';
+
+    $all = '';
+    $password = '';
+    foreach($sets as $set)
+    {
+        $password .= $set[array_rand(str_split($set))];
+        $all .= $set;
+    }
+
+    $all = str_split($all);
+    for($i = 0; $i < $length - count($sets); $i++)
+        $password .= $all[array_rand($all)];
+
+    $password = str_shuffle($password);
+
+    if(!$add_dashes)
+        return $password;
+
+    $dash_len = floor(sqrt($length));
+    $dash_str = '';
+    while(strlen($password) > $dash_len)
+    {
+        $dash_str .= substr($password, 0, $dash_len) . '-';
+        $password = substr($password, $dash_len);
+    }
+    $dash_str .= $password;
+    return $dash_str;
+}
