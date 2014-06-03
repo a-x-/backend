@@ -12,6 +12,7 @@
  */
 
 require_once 'common.php';
+require_once "$_SERVER[DOCUMENT_ROOT]/_data/consts.php";
 /**
  * Class Mq_Mode is  class Mq internal ENUM
  */
@@ -24,7 +25,9 @@ class Mq_Mode {
 /**
  * myMySQLLib
  * TODO добавить пагинацию
- * @version 5.2.2 Note: insert notation changed!
+ * @version 5.3
+ * 5.2 Note: insert notation changed!
+ * 5.3 Note: update behaviour changed // params order is true now.
  */
 class Mq
 {
@@ -45,6 +48,12 @@ class Mq
  */
 function Mq($schemeName = '', $x = false, $isLoggingNeed = false)
 {
+    if(is_array($schemeName)) {
+        $opts = $schemeName;
+        $schemeName = @$opts['schemeName'];
+        $x = @$opts['x'];
+        $isLoggingNeed = @$opts['isLog'];
+    }
     $this->isLoggingRequire = $isLoggingNeed;
     $this->x = $x;
     $this->schemeName = $schemeName;
@@ -173,15 +182,22 @@ function r($req, $isEndDataNeed = true, $isHeuristicsNeed = true /* «smart» */
      */
 function newR($req, $sigma = '', $params = false, $mode = Mq_Mode::SMART_ENDDATA, $isLoggingRequire = false)
 {
-//* @internal param bool $isHeuristicsNeed
-//* @internal param bool $isEndDataNeed
-//* @internal param bool $isNeedRetMqStmt
     $isHeuristicsNeed = $mode >> 2; // is «smart»
     $isEndDataNeed =  ($mode & bindec('011')) == 0;
     // idIResultNeed = $mode & bindec('011') == 1; // *Do not to delete*
     $isNeedRetMqStmt = ($mode & bindec('011')) == 2;
-    // echo "['$req'; $mode-->$isHeuristicsNeed, $isEndDataNeed, $isNeedRetMqStmt]";
     $out = $this->parseAlxMqSyntax($req, $isLoggingRequire);
+    if(\Invntrm\true_count($params)){
+        //
+        // fix params order
+        $whereExpr = array_shift($params); $params[] = $whereExpr;
+        //
+        // fix sigma order
+        $whereExprSign = substr($sigma,0,1);
+        $sigma = substr($sigma,1,strlen($sigma)-1);
+        $sigma .= $whereExprSign;
+    }
+    //
     return $isEndDataNeed ? $this->newQQ($out, $sigma, $params, $isHeuristicsNeed, $isLoggingRequire) : $this->newQ($out, $sigma, $params, $isNeedRetMqStmt, $isLoggingRequire);
 }
 
@@ -204,22 +220,23 @@ function newR($req, $sigma = '', $params = false, $mode = Mq_Mode::SMART_ENDDATA
 function newQ($req, $sigma = "", $params = array(), $isNeedRetMqStmt = false, $isLoggingRequire = false)
 {
     $isLoggingRequire = $isLoggingRequire || $this->isLoggingRequire;
-    if ($isLoggingRequire) $this->messageLog("<b>sqlLine-RAW: </b>$req; <b>Параметры</b><br>" . varDumpRet($params));
+    if ($isLoggingRequire) $this->messageLog("<b>sqlLine-RAW: </b>$req; <b>Параметры</b><br>" . \Invntrm\varDumpRet($params));
     $req = $this->reqPreprocessor($req);
 
     if ($isLoggingRequire) $this->messageLog("<b>sqlLine(after 1th proc): </b>$req; ");
 
     $this->stmt = $stmt = $this->hndl->prepare($req);
     if (!$stmt) {
-        $this->errorLog('mq class: $stmt don`t calculated! Req:'.varDumpRet($req));
+        $this->errorLog('mq class: $stmt don`t calculated! Req:'.\Invntrm\varDumpRet($req));
         return false;
     }
     if ($isNeedRetMqStmt) return $stmt;
 
     if ($sigma) {
         if (!is_array($params)) $params = array($params);
-        if (strlen($sigma) != count($params)) $this->errorLog("mq class: '$sigma' !~ ".varDumpRet($params).'; req: "'.varDumpRet($req).'"');
-        if (count($params)) {
+        if (strlen($sigma) != \Invntrm\true_count($params)) $this->errorLog(
+            "mq class: '$sigma' !~ ".\Invntrm\varDumpRet($params).'; req: "'.\Invntrm\varDumpRet($req).'"');
+        if (\Invntrm\true_count($params)) {
             array_unshift($params, $sigma); // Расширяем начальным элементом, содержащим сигнатуру
             $tmp = array(); // Преобразуем строки в ссылки (требуется функции call_user_func_array)
             foreach ($params as $key => $value) $tmp[$key] = & $params[$key]; // ...
@@ -227,7 +244,8 @@ function newQ($req, $sigma = "", $params = array(), $isNeedRetMqStmt = false, $i
         }
     }
     $stmt->execute(); $result = $stmt->get_result(); // Выполняем, получаем результаты
-    if ($isLoggingRequire && !$result->num_rows) $this->messageLog('mq class: result is empty! Req:'.varDumpRet($req));
+    if ($isLoggingRequire && !$result->num_rows) $this->messageLog(
+        'mq class: result is empty! Req:'.\Invntrm\varDumpRet($req));
         return $result;
 }
 
@@ -288,9 +306,11 @@ function newQQ($req, $sigma = "", $params = array(), $isHeuristicsNeed = true /*
      *
      * @TODO если у класса определено поле (поле в таблице бд) name использовать его для формирования ассоциативного массива-результата вместо обычного упорядоченного перечисления
      *
-     * @example user[nm='alx']?pic                      SELECT
+     * @example user[namm='alx']?pic                    SELECT
+     * @example user['alx']?pic                         SELECT (same)
      * @example user[n=1&&L=2]?pic|:.orderCol           SELECT with ORDER BY orderCol DESC
      * @example user[id=12347]?pic=new.jpg              UPDATE
+     * @example user[12347]?pic=new.jpg                 UPDATE (same)
      * @example user[pic='new.jpg',name='dec A. orz']>  INSERT
      * @example user[nm='alx']:d                        DELETE
      * @example user[staff.salary>10]?name              SELECT with RELATIONS (staff -- another table)
@@ -314,29 +334,46 @@ private function parseAlxMqSyntax($reqLine, $isLoggingRequire = false)
     // $part2ToJoinTables = array(); // Addition tables
     // $part1 = ''; // FROM
     // $part2ToJoinTables_cnt = 0; // Count of Addition tables
+    $part2Preprocessor = function ($part2){
+        $part2 = trim($part2);
+        $part2 = str_replace('*', '?', $part2);
+        //
+        // @example If part2='blue-hamster'
+        // @example If part2="heo_fast_quota"
+        if (preg_match('!^(\'|").*\1$!',$part2)) {
+            $part2 = preg_replace('!^(?:\'|")|(?:\'|")$!','',$part2); // delete string parenthesises for normalize
+            $part2 = "name='$part2'";
+        }
+        //
+        // @example If $part2=3232
+        // @example If $part2=42
+        if(preg_match('!^\d+$!',$part2)) {
+            $part2 = "id=$part2";
+        }
+        return $part2;
+    };
     if(!$isLoggingRequire)$isLoggingRequire = $this->isLoggingRequire;
     $limit = $out = $orderOptionStr = '';
 
     $reqArr = preg_split('!;\s*!', $reqLine);//                                                                Разбивка на отдельные запросы, разделённые символом ';'
     foreach ($reqArr as $req) { // Проход по отдельным alx-запросам
         if (preg_match('!:d$!', $req)) {//                                                                              * Требуется запрос удаления
-            preg_match('!^([a-z_]+)\[(.*)\]:d$!i', $req, $part);//                                           Разбить alx-запрос на простые составляющие (для запроса удаления)
+            preg_match('!^([a-z_]+)\[\s*(.*)\s*\]:d$!i', $req, $part);//                                           Разбить alx-запрос на простые составляющие (для запроса удаления)
 
             return "DELETE FROM $part[1] WHERE $part[2];";
         }
         if (preg_match('!^[a-z_]+\[.*\]>$!i', $req)) {//                                                                * Требуется запрос вставки
             preg_match('!^([a-z_]+)\[(.*)\]>\s*$!i', $req, $part);//                                           Разбить alx-запрос на простые составляющие (для запроса вставки)
             $table = $part[1];
-            $part[2] = str_replace('*', '?', $part[2]);
-            $insStr = $part[2];
-            return "INSERT INTO $table SET"." $insStr";
+            $part[2] = $part2Preprocessor($part[2]);
+            return "INSERT INTO $table SET $part[2]";
         }
-        preg_match('/^([a-z_]+)\[(.*)\]\?([a-z0-9_,`\.\'=*? >\(\)]+)(\|(?:(\.:|:\.)\s*([\S]*))?)?(?:\s+(.*))?\s*$/i', $req, $part);//           Разбить alx-запрос на составляющие
+        preg_match('/^([a-z_]+)\[\s*(.*)\s*\]\?([a-z0-9_,`\.\'=*? >\(\)]+)(\|(?:(\.:|:\.)\s*([\S]*))?)?(?:\s+(.*))?\s*$/i', $req, $part);//           Разбить alx-запрос на составляющие
         /*
          * [1]--primary_table [2]--condition [3]--aim [4: [5]--.:|:.--order_dir [6]--order_col [7]--group]
          */
 
-        $part[2] = isset($part[2]) ? str_replace('*', '?', $part[2]) : '';
+        $part[2] = $part2Preprocessor(@$part[2]);
         $part[3] = isset($part[3]) ? str_replace('>', ' AS ', $part[3]) : '';
         preg_match_all('!ref:([a-z_]+)!im', $part[2].',', $additionRefTables, PREG_PATTERN_ORDER);
         $part[2] = preg_replace('!ref:([a-z_]+)!im',"", $part[2]);
@@ -353,7 +390,7 @@ private function parseAlxMqSyntax($reqLine, $isLoggingRequire = false)
             return true;
         }));
 
-        $part2ToJoinTables_cnt = count($part2ToJoinTables);
+        $part2ToJoinTables_cnt = \Invntrm\true_count($part2ToJoinTables);
 
         if ($part2ToJoinTables_cnt) {//                                                                                 * Требуется мультитабличная предобработка
 
