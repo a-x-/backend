@@ -42,14 +42,19 @@ function specifyTemplate($template, $vars)
 
 function parseMetaPage($str)
 {
-    $rawPage = (get_preg_match('!^(.*?)\r?\n\r?(?:\r?\n)+\s*(.*)$!s', $str));
-    if (!count($rawPage)) {
+    //
+    // Page meta header existing check
+    if(!preg_match('!^((.+?)\s*:\s*(.+)\r?\n)+\r?\n!i',$str)) {
+        return [[],$str];
+    }
+    $rawPage = (get_preg_match('!^(.*?)(?:\r?\n){2,}\s*(.*)$!s', $str));
+    if (!true_count($rawPage)) {
         return [[], $str];
     }
     list($meta, $body) = $rawPage;
     $metaLines = preg_split('!\s*\r?\n\s*!', $meta);
     foreach ($metaLines as &$metaLine) {
-        $metaLine = get_preg_match('!^(.*?)\s*:\s*(.*)$!', $metaLine);
+        $metaLine = get_preg_match('!^(.+?)\s*:\s*(.+)$!', $metaLine);
     }
     $meta = akv2okv($metaLines);
     return [$meta, $body,];
@@ -57,33 +62,34 @@ function parseMetaPage($str)
 
 function buildPage($path, $params_origin = [])
 {
-    if (!$path) { buildPage('/404/'); }
+    if (!$path) { return buildPage('/404/'); }
     $defaultPrefix = '/_views';
-    list($templateWithMeta, $pageDir) = getFileContent($path, 'html', $defaultPrefix);
+    list($templateWithMeta, $pageDir, $pageName) = getFileContent($path, 'html', $defaultPrefix);
     if($templateWithMeta === false) {
         return buildPage('/404/');
     }
     list($meta, $template) = parseMetaPage($templateWithMeta);
     $out = $template;
-    $pageObject = get_require($path); // try execute template's logic
-    $css = getCss($path); // add css
+    $pageObject = get_require($pageDir.$pageName/*, ROOT . '_views/'*/); // try execute template's logic
+    $css = getCss($pageDir.$pageName); // add css
     $css = "<style>/* $path */".$css."</style>\n";
-    //
+    //                                                      // L  Inject   View secret       comment
     $params = [];
-    $params = array_merge($params, $_REQUEST);              // 5 DANGEROUS  add server constants
-    $params = array_merge($params, $_SESSION);              // 4 UNTRUST    add server constants
-    $params = array_merge($params, $_SERVER);               // 3 UNTRUST    add server constants
-    $params = array_merge($params, get_defined_constants());// 2 TRUST      add constants
-    $params = array_merge($params, $pageObject);            // 1 TRUST      add page php script given object
-    $params = array_merge($params, $params_origin);         // 0 TRUST      add page call params
+    $params = array_merge($params, $_REQUEST);              // 5 DANGEROUS             add server constants
+    $params = array_merge($params, $_SESSION);              // 4 UNTRUST               add server constants
+    $params = array_merge($params, $_SERVER);               // 3 UNTRUST               add server constants
+    $params = array_merge($params, get_defined_constants());// 2 TRUST      DANGEROUS  add constants
+    $params = array_merge($params, $params_origin);         // 0 TRUST                 add page call params
+    $params = array_merge($params, $pageObject);            // 1 TRUST                 add page php script given object
+    // @todo add params filters
     //
     $paramMapping = (isset($pageObject['_PARAM_MAPPING_'])) ? $pageObject['_PARAM_MAPPING_'] : [];
     if(!isset($params['styles'])) {$params['styles'] = $css;}
-    else { $params['styles'] .= $css; }
+    else { $params['styles'] = $css . $params['styles']; }
     if (isset($pageObject['_STOP_'])) {
         $stopRef = $pageObject['_STOP_']; // ref to redirect page or null for 404
         if(!$stopRef) {
-            buildPage('/404/');
+            return buildPage('/404/');
         }
         header("Location: $stopRef");
     }
@@ -186,7 +192,7 @@ function getFileContent($fileName__filePath, $defaultExtension, $defaultPrefix)
     } else {
         $template = $fileName__filePath;
     }
-    return [$template, dirname($filePath)];
+    return [$template, dirname($filePath).'/', preg_replace('!\..*?$!','',basename($filePath))];
 }
 
 
@@ -199,9 +205,8 @@ function getFileContent($fileName__filePath, $defaultExtension, $defaultPrefix)
  * @param bool $isStrict
  * @return array
  */
-function get_require($phpFileName, $prefix = null, $isStrict = false)
+function get_require($phpFileName, $prefix = '', $isStrict = false)
 {
-    if ($prefix === null) $prefix = ROOT . '_views/';
     $phpFileName = $prefix . preg_replace('!/$!', '', $phpFileName) . '.php';
     if ($isStrict) {
         require($phpFileName);
@@ -214,8 +219,11 @@ function get_require($phpFileName, $prefix = null, $isStrict = false)
         return [];
 }
 
+function true_count($array){
+    return (is_array($array)) ? count($array) : 0;
+}
+
 function getCss ($path, $prefix = null, $isStrict = false){
-    if ($prefix === null) $prefix = ROOT . '_views/';
     $path = $prefix . preg_replace('!/$!', '', $path) . '.css';
     $isFileExist = is_file($path);
     if ($isStrict) if (!$isFileExist) {
@@ -259,7 +267,7 @@ function _d($text)
  */
 function bugReport2($type, $text)
 {
-    file_put_contents(ROOT . '_logs/error.log', "\n" . date(DATE_RSS) . '>' . $type . '>' . $text, FILE_APPEND);
+    file_put_contents(ROOT . '_logs/error.log', "\n" . date(DATE_RSS) . '>' . $type . '>' . varDumpRet($text), FILE_APPEND);
 }
 
 /**
@@ -297,7 +305,7 @@ function json_decode_file($path)
 function evalArrayByPath($path, $root)
 {
     $dirs = preg_split('/\./', $path);
-    for ($i = 0, $l = count($dirs); $i < $l; ++$i) {
+    for ($i = 0, $l = true_count($dirs); $i < $l; ++$i) {
         $dir = $dirs[$i];
         if (isset($root[$dir])) $root = $root[$dir];
         else return false;
@@ -390,7 +398,7 @@ function printRRet($var)
  */
 function array_filter_bwLists($array, $whiteList = [], $blackList = [])
 {
-    if ($whiteList && count($whiteList)) {
+    if ($whiteList && true_count($whiteList)) {
         //
         // White list rule
         return array_intersect_key($array, $whiteList);
@@ -412,6 +420,20 @@ function get_preg_match($pattern, $string)
     preg_match($pattern, $string, $matches);
     array_shift($matches);
     return $matches;
+}
+
+/**
+ * Return unshifted array (none modify)
+ * a + [b,c] -> [a,b,c]
+ * @param $var
+ * @param $array
+ * @return mixed
+ */
+function get_array_unshift($var, $array)
+{
+    $array2 = $array;
+    array_unshift($array2,$var); // no returns new $array, but modify input array
+    return $array2;
 }
 
 /**
@@ -526,7 +548,7 @@ function generateStrongPassword($length = 9, $add_dashes = false, $available_set
     }
 
     $all = str_split($all);
-    for($i = 0; $i < $length - count($sets); $i++)
+    for($i = 0; $i < $length - true_count($sets); $i++)
         $password .= $all[array_rand($all)];
 
     $password = str_shuffle($password);
@@ -564,11 +586,42 @@ function recursiveDegenerateArrOptimize($arr)
         foreach ($arr as $arr_key => $arr_val) {
             $arr[$arr_key] = recursiveDegenerateArrOptimize($arr_val);
         }
-        if (count($arr) === 1)
+        if (true_count($arr) === 1)
             foreach ($arr as $arr_val)
                 $arr = $arr_val;
-        elseif (!count($arr))
+        elseif (!true_count($arr))
             $arr = null;
     }
     return $arr;
 }
+
+/**
+ * @example $code = encrypt_data('12345','Привет Ясень! 45');
+ * @example require_once 'Mq.php';
+ * @example $ew1 = (new \Mq())->newR('user[1]?ym_token2_encrypted=*,ym_token2_iv=*','ss',$code);
+ * @example $ew2 = (new \Mq())->newR('user[1]?ym_token2_encrypted,ym_token2_iv');
+ * @example $code = decrypt_data('12345',$ew2['ym_token2_iv'],$ew2['ym_token2_encrypted']);
+ * @example $code;
+ * @param $key
+ * @param $text
+ * @return string
+ */
+function encrypt_data($key, $text){
+    $iv_size = mcrypt_get_iv_size(MCRYPT_RIJNDAEL_256, MCRYPT_MODE_ECB);
+    $iv = mcrypt_create_iv($iv_size, MCRYPT_RAND);
+    $encrypted_text = mcrypt_encrypt(MCRYPT_RIJNDAEL_256, $key, $text, MCRYPT_MODE_ECB, $iv);
+    return [$encrypted_text,$iv];
+}
+/**
+ * @param $key
+ * @param $iv
+ * @param $text
+ * @return string
+ */
+function decrypt_data($key, $iv, $text){
+//    $iv_size = mcrypt_get_iv_size(MCRYPT_RIJNDAEL_256, MCRYPT_MODE_ECB);
+//    $iv = mcrypt_create_iv($iv_size, MCRYPT_RAND);
+    $decrypted_text = mcrypt_decrypt(MCRYPT_RIJNDAEL_256, $key, $text, MCRYPT_MODE_ECB, $iv);
+    return rtrim($decrypted_text, "\0");
+}
+
