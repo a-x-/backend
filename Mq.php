@@ -30,14 +30,14 @@ class Mq_Mode
 /**
  * myMySQLLib
  * TODO добавить пагинацию
- * @version 5.3
+ * @version 5.4
  * 5.2 Note: insert notation changed!
  * 5.3 Note: update behaviour changed // params order is true now.
+ * 5.4 Note q, qq, r are removed
  */
 class Mq
 {
     var $x; // conte[x]t
-    // todo преобразовать к виду структуры типа x (conte[x]t)
     var $hndl;
     var $isLoggingRequire;
     var $stmt;
@@ -78,7 +78,6 @@ class Mq
 
     function reqPreprocessor($req)
     {
-        $tmp = $req;
         $req = preg_replace_callback('/^([a-z\.\-_]+)\.sql$/i', function ($matches) {
             return file_get_contents("sql-reqs/$matches[1].sql");
         }, $req);
@@ -86,90 +85,6 @@ class Mq
         $req = preg_replace('!\[SCHEME_NAME_DEFAULT\]!', '"' . SCHEME_NAME_DEFAULT . '"', $req); // Название "базы данных" (в терминах mySQL)
 
         return $req;
-    }
-
-    /**
-     * @deprecated
-     * Запрос [нативный] [общий] [классический] [ресурсный] [буфферизированный/не_буфферизированный]
-     *
-     * @param      $req
-     * @param bool $ifBufferingNeed
-     *
-     * @return bool|mysqli_result
-     */
-    function q($req, $ifBufferingNeed = false)
-    {
-        /* MANUAL
-         *    * Небуферизированный результат.
-         * В этом случае вы можете начинать читать результаты, не дожидаясь пока mysql сервер получит результат полностью.
-         *
-         * Преимущества:
-         *    Результат можно начинать читать раньше, сокращается время ожидания;
-         *    Результат не занимает место в оперативной памяти.
-         *
-         * Недостатки:
-         *    НЕВОЗМОЖНО УЗНАТЬ, СКОЛЬКО СТРОК ПОЛУЧЕНО; (по всей видимости, спорно)
-         *    Невозможно передвигаться к определенному результату, то есть можно читать данные только с начала и по порядку;
-         *    Нельзя выполнять других запросов, пока не закрыт этот результат.
-         */
-        $req    = $this->reqPreprocessor($req);
-        $result = $this->hndl->query($req, $ifBufferingNeed ? MYSQLI_STORE_RESULT : MYSQLI_USE_RESULT);
-
-        if ($this->isLoggingRequire) $this->messageLog("<div><b>sqlLine: </b>$req</div>" . "<b>sqlResxResult: </b>" . \Invntrm\varDumpRet($result));
-
-        if (!$result) {
-            $this->errorLog("Mq::q: mySQL query`s hadn`t successful return! req=$req { " . (__FILE__ . ':' . __LINE__ . ' ' . __FUNCTION__ . '() }'));
-
-            return false;
-        }
-
-        return $result;
-    }
-
-    /**
-     * Запрос [нативный] [общий] [классический] [НЕ ресурсный] [буфферизированный/не_буфферизированный]
-     * @deprecated
-     *
-     * @param      $req
-     * @param bool $isHeuristicsNeed
-     * @param bool $ifBufferingNeed
-     *
-     * @return int|mixed
-     */
-    function qq($req, $isHeuristicsNeed = true /* «smart» */, $ifBufferingNeed = false)
-    {
-        $res = $this->q($req, $ifBufferingNeed);
-        if (preg_match("!^(INSERT|UPDATE)!", $req))
-            return $this->hndl->insert_id;
-        if (!$res)
-            return 0;
-        if (!is_object($res))
-            return true;
-        $i = 0;
-        while ($row[$i++] = $res->fetch_assoc()) ;
-        array_pop($row);
-        if ($isHeuristicsNeed) $row = \Invntrm\recursiveDegenerateArrOptimize($row);
-        if ($this->isLoggingRequire) $this->messageLog("[DEBUG LOG] <b>sqlResult: </b>" . \Invntrm\varDumpRet($row));
-
-        return $row;
-    }
-
-    /**
-     * Запрос [НЕ нативный] [НЕ общий (выборка)]  [классический] [ресурсный/не_ресурсный] [НЕ буфферизированный]
-     * @deprecated
-     *
-     * @param string $req           Упрощенный запрос
-     * @param        $sigma
-     * @param        $params
-     * @param bool   $isEndDataNeed If false then $isHeuristicsNeed is none using arg
-     * @param bool   $isHeuristicsNeed
-     *
-     * @return array|int|mixed
-     */
-    function r($req, $sigma, $params, $isEndDataNeed = true, $isHeuristicsNeed = true /* «smart» */)
-    {
-        $out = $this->parseAlxMqSyntax($req, $sigma, $params);
-        return $isEndDataNeed ? $this->qq($out, $isHeuristicsNeed) : $this->q($out);
     }
 
     /**
