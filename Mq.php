@@ -25,23 +25,23 @@ class Mq_Mode
     const SMART_ENDDATA = 4; // 1|00
 }
 
-;
 
 /**
  * myMySQLLib
  * TODO добавить пагинацию
- * @version 5.4
+ * @version 5.5
  * 5.2 Note: insert notation changed!
  * 5.3 Note: update behaviour changed // params order is true now.
  * 5.4 Note q, qq, r are removed
+ * 5.5 Note newQ, newQQ renamed end refactored into q1, q2, q3, q4
+ *     Note req and parseAlxMqSyntax moved out to AlxMq class
  */
 class Mq
 {
-    var $x; // conte[x]t
-    var $hndl;
-    var $isLoggingRequire;
-    var $stmt;
-    var $schemeName;
+    protected $driver;
+    protected $isLoggingRequire;
+    protected $stmt;
+    protected $schemeName;
 
 
     /**
@@ -49,101 +49,138 @@ class Mq
      *
      * @param string $schemeName    имя "базы данных" (способствует использованию нескольких "баз данных"[в рамках терминов mySQL])
      * @param bool   $isLoggingNeed выбрасавыть на клиента все логи
-     * @param bool   $x
      */
-    function Mq($schemeName = '', $x = false, $isLoggingNeed = false)
+    public function Mq($schemeName = '', $isLoggingNeed = false)
     {
         if (is_array($schemeName)) {
             $opts          = $schemeName;
             $schemeName    = @$opts['schemeName'];
-            $x             = @$opts['x'];
             $isLoggingNeed = @$opts['isLog'];
         }
         $this->isLoggingRequire = $isLoggingNeed;
-        $this->x                = $x;
         $this->schemeName       = $schemeName;
         if (!$schemeName) $schemeName = SCHEME_NAME_DEFAULT; // По умолчанию берётся из settings.ini
-        $this->hndl = new mysqli(); // Параметры устанавливаются из php-conf
-        $this->hndl->real_connect();
-        $this->hndl->select_db($schemeName);
+        $this->driver = new mysqli(); // Параметры устанавливаются из php-conf
+        $this->driver->real_connect();
+        $this->driver->select_db($schemeName);
 
         $this->errorCheck('Mq::Mq initialization not success! {' . (__FILE__ . ':' . __LINE__ . ' ' . __FUNCTION__ . '()') . '}');
 
         /* MANUAL
          * Очень важно выставление правильной кодировки
          * В настройках mySQL-сервера (my.conf) или php-командой из mySQL API:
-         * $this->hndl->real_query('set names utf8');
+         * $this->driver->real_query('set names utf8');
          */
     }
 
-    function reqPreprocessor($req)
-    {
-        $req = preg_replace_callback('/^([a-z\.\-_]+)\.sql$/i', function ($matches) {
-            return file_get_contents("sql-reqs/$matches[1].sql");
-        }, $req);
-        $req = preg_replace('!\[(?:SCHEME_NAME|TABLE_SCHEMA)\]!', '"' . $this->schemeName . '"', $req); // Название "базы данных" (в терминах mySQL)
-        $req = preg_replace('!\[SCHEME_NAME_DEFAULT\]!', '"' . SCHEME_NAME_DEFAULT . '"', $req); // Название "базы данных" (в терминах mySQL)
-
-        return $req;
-    }
-
     /**
-     * Запрос [НЕ нативный] [НЕ общий (выборка)]  [НЕ классический(placeholders)] [ресурсный/не_ресурсный] [абстрактно- ресурсный/не_ресурсный]
+     * Занести в лог $dbgMsg + дополнительные параметры, если зафиксирована ошибка
      *
-     * Может работать с рядом запросов, разделённых символами !;\s*!
-     *
-     * ! для table[where]?col=val /UPDATE-req/ порядока плейсхолдеров нарушается
-     * ОСТОРОЖНО! Не перепутать UPDATE и INSERT
-     *
-     * @param string       $req
-     * @param string       $sigma При выполнении серии запросов нумеруется сквозным образом
-     * @param array|bool   $params
-     * @param int|\Mq_Mode $mode
-     * @param bool         $isLoggingRequire
-     *
-     * @return string|array|bool|mysqli_result|mysqli_stmt mysqli_result
+     * @param string $errMsg
      */
-    function newR($req, $sigma = '', $params = false, $mode = Mq_Mode::SMART_ENDDATA, $isLoggingRequire = false)
+    protected function errorCheck($errMsg = '')
     {
-        $isHeuristicsNeed = $mode >> 2; // is «smart»
-        $isEndDataNeed    = ($mode & bindec('011')) == 0;
-        // idIResultNeed = $mode & bindec('011') == 1; // *Do not to delete*
-        $isNeedRetMqStmt = ($mode & bindec('011')) == 2;
-        $out             = $this->parseAlxMqSyntax($req, $sigma, $params, $isLoggingRequire);
-        //
-        return $isEndDataNeed ? $this->newQQ($out, $sigma, $params, $isHeuristicsNeed, $isLoggingRequire) : $this->newQ($out, $sigma, $params, $isNeedRetMqStmt, $isLoggingRequire);
+        $this->errorLog($errMsg, false);
     }
 
     /**
-     * Запрос [нативный] [общий]  [НЕ классический(placeholders)] [ресурсный] [абстрактно- ресурсный/не_ресурсный]
+     * Занести в лог $dbgMsg + дополнительные параметры(если есть) БЕЗУСОЛВНО
      *
-     * Безопасный запрос с плейлсхолдерами.
-     *      Полезен в случае получения GET|POST-аргументов до соединения с БД.
-     * Позволяет совершать итерации fetch снаружи
-     * Может позволять использовать execute снаружи
+     * @param $errMsg string
+     * @param $force  bool
+     *
+     * @return string
+     */
+    protected function errorLog($errMsg = '', $force = true)
+    {
+        $driverErr = $this->checkDriverError();
+        if ($force || $driverErr) \Invntrm\bugReport2('Mq', "$driverErr ($errMsg)"); // сделать запись если произошли ошибки или если $force=true (даже, если ошибок не было или если они были)
+        return $driverErr;
+    }
+
+    /**
+     * Check mysqli driver last errors
+     * @return bool|string
+     */
+    protected function checkDriverError()
+    {
+        $additionErrorType = 'unknown';
+        $errNo             = 0;
+        $errNote           = '';
+        if ($this->stmt && $this->stmt->errno) {
+            $errNo             = $this->stmt->errno;
+            $errNote           = $this->stmt->error;
+            $additionErrorType = 'stmt';
+        } elseif ($this->driver->errno) {
+            $errNo   = $this->driver->errno;
+            $errNote = $this->driver->error;
+        } elseif ($this->driver->connect_errno) {
+            $errNo             = $this->driver->connect_errno;
+            $errNote           = $this->driver->connect_error;
+            $additionErrorType = 'connect';
+        }
+        return $errNo ? "[ERR_LOG] Mq $additionErrorType error #$errNo '$errNote'" : false;
+    }
+
+    /**
+     * Get OPTIMISED (ROWS LIST OR ROW ID /if row inserted/).
+     *
+     * @param        $req
+     * @param string $sigma
+     * @param array  $params
+     * @param bool   $isLoggingRequire
+     *
+     * @return array|bool|mixed
+     */
+    public function q4($req, $sigma = "", $params = array(), $isLoggingRequire = false)
+    {
+        $rows = $this->q3($req, $sigma, $params, $isLoggingRequire);
+        $rows = \Invntrm\recursiveDegenerateArrOptimize($rows);
+        return $rows;
+    }
+
+    /**
+     * Get RAW ROWS LIST
+     *
+     * @param        $req
+     * @param string $sigma
+     * @param array  $params
+     * @param bool   $isLoggingRequire
+     *
+     * @return array|bool
+     */
+    public function q3($req, $sigma = "", $params = array(), $isLoggingRequire = false)
+    {
+        $isLoggingRequire = $isLoggingRequire || $this->isLoggingRequire;
+        $row              = array();
+        $res              = $this->q2($req, $sigma, $params);
+        if (preg_match("!^INSERT!", $req))
+            return $this->driver->insert_id; // При таких запросах единственное, что мб интересно: id записи
+        elseif (preg_match("!^UPDATE!", $req))
+            return preg_replace("!.*WHERE.*`?id`?=([0-9+]).*!", "$1", $req); // При таких запросах единственное, что мб интересно: id записи
+        if (!$res)
+            return false;
+        //
+        for ($i = 0; $tmp = $res->fetch_array(MYSQLI_ASSOC); $i++) $row[$i] = $tmp;
+        if ($isLoggingRequire) $this->messageLog("<b>sqlResult: </b>" . \Invntrm\varDumpRet($row));
+        //
+        return $row;
+    }
+
+    /**
+     * Get RAW RESULT.
      *
      * @param      $req             string Запрос-заготовка с плейсхолдерами
      * @param      $sigma           string Строка кодов типов параметров
      * @param      $params          array Параметры
-     * @param      $isNeedRetMqStmt bool Вернуть только stmt, чтобы воспользоваться execute снаружи
      * @param bool $isLoggingRequire
      *
-     * @return mysqli_result|mysqli_stmt mysqli_result|bool -- Ресурс-класс, позволяющий совершать итерации fetch снаружи
+     * @return mysqli_result|bool -- Ресурс-класс, позволяющий совершать итерации fetch снаружи
      */
-    function newQ($req, $sigma = "", $params = array(), $isNeedRetMqStmt = false, $isLoggingRequire = false)
+    public function q2($req, $sigma = "", $params = array(), $isLoggingRequire = false)
     {
         $isLoggingRequire = $isLoggingRequire || $this->isLoggingRequire;
-        if ($isLoggingRequire) $this->messageLog("<b>sqlLine-RAW: </b>$req; <b>Параметры</b><br>" . \Invntrm\varDumpRet($params));
-        $req = $this->reqPreprocessor($req);
-
-        if ($isLoggingRequire) $this->messageLog("<b>sqlLine(after 1th proc): </b>$req; ");
-
-        $this->stmt = $stmt = $this->hndl->prepare($req);
-        if (!$stmt) {
-            $this->errorLog('mq class: $stmt don`t calculated! Req:' . \Invntrm\varDumpRet($req));
-            return false;
-        }
-        if ($isNeedRetMqStmt) return $stmt;
+        $stmt             = $this->q1($req, $sigma, $params, $isLoggingRequire);
 
         if ($sigma) {
             if (!is_array($params)) $params = array($params);
@@ -156,57 +193,118 @@ class Mq
                 call_user_func_array(array($stmt, 'bind_param'), $tmp); // Запускаем $stmt->bind_param с праметрами из массива
             }
         }
+
         $stmt->execute();
         $result = $stmt->get_result(); // Выполняем, получаем результаты
         if ($isLoggingRequire && !$result->num_rows) $this->messageLog(
-            'mq class: result is empty! Req:' . \Invntrm\varDumpRet($req));
+            'mq class: result is empty! Req:' . \Invntrm\varDumpRet($req)
+        );
         return $result;
     }
 
     /**
-     * Запрос [нативный] [общий] [НЕ классический(placeholders)] [НЕ ресурсный] [абстрактно- ресурсный/не_ресурсный]
+     * Get STMT
      *
-     * Безопасный запрос с плейлсхолдерами.
-     *      Полезен в случае получения GET|POST-аргументов до соединения с БД.
+     * @param        $req
+     * @param string $sigma
+     * @param array  $params
+     * @param bool   $isLoggingRequire
      *
-     * Выдаёт готовый массив-результат.
-     * Может позволять конвертировать деградированный массивные уровни в массивы меньшей степени,
-     *    вплоть до возвращения скалярных переменных
-     * Может позволять использовать execute снаружи
-     *
-     * @param      $req
-     * @param      $sigma
-     * @param      $params
-     * @param bool $isHeuristicsNeed
-     * @param bool $isLoggingRequire
-     *
-     * @return array|bool|mixed
+     * @return bool|mysqli_stmt - Ресурс драйвера, позволяющий повторять приготовленныей запрос с параметрами
      */
-    function newQQ($req, $sigma = "", $params = array(), $isHeuristicsNeed = true /* «smart» */, $isLoggingRequire = false)
+    public function q1($req, $sigma = "", $params = array(), $isLoggingRequire = false)
     {
         $isLoggingRequire = $isLoggingRequire || $this->isLoggingRequire;
-        $row              = array();
-        $res              = $this->newQ($req, $sigma, $params);
-        if (preg_match("!^INSERT!", $req))
-            return $this->hndl->insert_id; // При таких запросах единственное, что мб интересно: id записи
-        elseif (preg_match("!^UPDATE!", $req))
-            return preg_replace("!.*WHERE.*`?id`?=([0-9+]).*!", "$1", $req); // При таких запросах единственное, что мб интересно: id записи
-        if (!$res)
+        if ($isLoggingRequire) $this->messageLog("<b>sqlLine-RAW: </b>$req; <b>Параметры</b><br>" . \Invntrm\varDumpRet($params));
+        $req = $this->reqPreprocessor($req);
+
+        if ($isLoggingRequire) $this->messageLog("<b>sqlLine(after 1th proc): </b>$req; ");
+
+        $this->stmt = $stmt = $this->driver->prepare($req);
+        if (!$stmt) {
+            $this->errorLog('mq class: $stmt don`t calculated! Req:' . \Invntrm\varDumpRet($req));
             return false;
-
-        for ($i = 0; $tmp = $res->fetch_array(MYSQLI_ASSOC); $i++) $row[$i] = $tmp;
-        if ($isHeuristicsNeed) $row = \Invntrm\recursiveDegenerateArrOptimize($row);
-        if ($isLoggingRequire) $this->messageLog("<b>sqlResult: </b>" . \Invntrm\varDumpRet($row));
-
-        return $row;
+        }
+        return $stmt;
     }
 
+    /**
+     * Занести в ИНФОРМАЦИОННЫЙ лог $dbgMsg + дополнительные параметры(если есть) БЕЗУСОЛВНО
+     *
+     * @param string $dbgMsg
+     */
+    protected function messageLog($dbgMsg = '')
+    {
+        if (!$this->errorLog($dbgMsg)) // Действительно сделать запись в ИНФО лог, но только если не было ошибок
+            \Invntrm\_d('[DEBUG_LOG] ' . $dbgMsg);
+    }
+
+    protected function reqPreprocessor($req)
+    {
+        $req = preg_replace_callback('/^([a-z\.\-_]+)\.sql$/i', function ($matches) {
+            return file_get_contents("sql-reqs/$matches[1].sql");
+        }, $req);
+        $req = preg_replace('!\[(?:SCHEME_NAME|TABLE_SCHEMA)\]!', '"' . $this->schemeName . '"', $req); // Название "базы данных" (в терминах mySQL)
+        $req = preg_replace('!\[SCHEME_NAME_DEFAULT\]!', '"' . SCHEME_NAME_DEFAULT . '"', $req); // Название "базы данных" (в терминах mySQL)
+
+        return $req;
+    }
+
+    /**
+     * @todo what is it
+     *
+     * @param mysqli_stmt $stmt
+     *
+     * @return array
+     */
+    function get_result($stmt)
+    {
+        $tmp            = array();
+        $special_result = $stmt->result_metadata();
+        $field_count    = $special_result->field_count;
+        for ($i = 0; $i < $field_count; ++$i) {
+            $tmp[$i] = null;
+            $stmt->bind_result($tmp[$i]);
+        }
+        return $tmp;
+    }
+
+    public function close()
+    {
+        $this->driver->close();
+    }
+
+    public function  __destruct()
+    {
+        $this->driver->close();
+    }
+
+    /**
+     * mysqli::real_escape_string (mysqli_real_escape_string)
+     * Экранирует специальные символы в строке для использования в SQL выражении,
+     * используя текущий набор символов соединения
+     *
+     * @param $str
+     *
+     * @return string
+     */
+    public function esc($str)
+    {
+        return $this->driver->real_escape_string($str);
+    }
+}
+
+class AlxMQ extends Mq
+{
+    protected $isLoggingRequire;
+
+    public function __construct()
+    {
+
+    }
 
     /**
      * Разбор запросов упрощенной нотации доступа к SQL-базам данных
-     *
-     * (!) Для UPDATE-запроса происходит смена порядка подстановки в плейсхолдеры
-     * ОСТОРОЖНО! Не перепутать UPDATE и INSERT
      *
      * * Может работать с рядом запросов, разделённых символами ;\s*
      * Наличие полей в обрабатываемых таблицах проверяется, если это необходимо (необходимо наличие information_schema)
@@ -229,7 +327,7 @@ class Mq
      * @example user[nm='alx']:d                        DELETE
      * @example user[staff.salary>10]?name              SELECT with RELATIONS (staff -- another table)
      * @example page[product.nm=* ref:artcl_prod]?descr,url|:.created           SELECT with RELATIONS (Является временным синтаксисом)
-     * @example See another emamples
+     * @example See another examples
      *          $mq->newR("page[product.nm=* ref:artclPage_prod__proxy]?descr,url,title,img|:.created", 's', $prod, Mq_Mode::NOSMART_ENDDATA);
      *          $reachProdsInfo = $mq->r("product[ref:prodMainPage ref:theme]?count(video)>`all`, product.videoShwIndex>`curr`, page.url, product.nm, product.shortName| GROUP BY product.id", true, false);
      *          $poorProdsInfo = $mq->r("product[ref:prodMainPage product.videoShwIndex=-1]?0>`all`, 0>`curr`, page.url, product.nm, product.shortName", true, false);
@@ -242,7 +340,7 @@ class Mq
      *
      * @return string
      */
-    private function parseAlxMqSyntax($reqLine, &$sigma, &$params, $isLoggingRequire = false)
+    protected function parseAlxMqSyntax($reqLine, &$sigma, &$params, $isLoggingRequire = false)
     {
         // Declaration list. *NOT TO DELETE*
         //
@@ -322,8 +420,8 @@ class Mq
                 $part1 .= ' ON ';
                 $part1_arr          = array();
                 $k                  = 0;
-                $information_schema = new Mq("information_schema");
-                $infoStmt           = $information_schema->newR("COLUMNS[TABLE_SCHEMA=[SCHEME_NAME_DEFAULT] && TABLE_NAME=*]?COLUMN_NAME", '', false, Mq_Mode::NOSMART_STMT);
+                $information_schema = new AlxMQ("information_schema");
+                $infoStmt           = $information_schema->req("COLUMNS[TABLE_SCHEMA=[SCHEME_NAME_DEFAULT] && TABLE_NAME=*]?COLUMN_NAME", '', false, Mq_Mode::NOSMART_STMT);
                 array_unshift($part2ToJoinTables, $part[1]);
                 foreach ($part2ToJoinTables as $table1)
                     foreach ($part2ToJoinTables as $table2) {
@@ -400,109 +498,40 @@ class Mq
         return $out;
     } // function parseAlxMqSyntax()
 
-
     /**
-     * Занести в лог $dbgMsg + дополнительные параметры, если зафиксирована ошибка
+     * Может работать с рядом запросов, разделённых символами !;\s*!
+     * См. Mq::parseAlxMqSyntax() for $req syntax
      *
-     * @param string $errMsg
+     * @param string       $req
+     * @param string       $sigma При выполнении серии запросов нумеруется сквозным образом
+     * @param array|bool   $params
+     * @param int|\Mq_Mode $mode
+     * @param bool         $isLoggingRequire
+     *
+     * @return string|array|bool|mysqli_result|mysqli_stmt mysqli_result
      */
-    private function errorCheck($errMsg = '')
+    public function req($req, $sigma = '', $params = false, $mode = Mq_Mode::SMART_ENDDATA, $isLoggingRequire = false)
     {
-        $this->errorLog($errMsg, false);
+        $isHeuristicsNeed = $mode >> 2; // is «smart»
+        $isEndDataNeed    = ($mode & bindec('011')) == 0;
+        $idIResultNeed    = ($mode & bindec('011')) == 1; // *Do not to delete*
+        $isMqStmtRequire  = ($mode & bindec('011')) == 2;
+        $out              = $this->parseAlxMqSyntax($req, $sigma, $params, $isLoggingRequire);
+        //
+        if ($isHeuristicsNeed) {
+            return $this->q4($out, $sigma, $params, $isLoggingRequire);
+        } elseif ($isEndDataNeed) {
+            return $this->q3($out, $sigma, $params, $isLoggingRequire);
+        } elseif ($idIResultNeed) {
+            return $this->q2($out, $sigma, $params, $isLoggingRequire);
+        } elseif ($isMqStmtRequire) {
+            return $this->q1($out, $sigma, $params, $isLoggingRequire);
+        } else
+            return false;
     }
 
-    /**
-     * Занести в лог $dbgMsg + дополнительные параметры(если есть) БЕЗУСОЛВНО
-     *
-     * @param $errMsg string
-     * @param $force  bool
-     *
-     * @return string
-     */
-    private function errorLog($errMsg = '', $force = true)
-    {
-        $driverErr = $this->checkDriverError();
-        if ($force || $driverErr) \Invntrm\bugReport2('Mq', "$driverErr ($errMsg)"); // сделать запись если произошли ошибки или если $force=true (даже, если ошибок не было или если они были)
-        return $driverErr;
-    }
-
-    /**
-     * Занести в ИНФОРМАЦИОННЫЙ лог $dbgMsg + дополнительные параметры(если есть) БЕЗУСОЛВНО
-     *
-     * @param string $dbgMsg
-     */
-    private function messageLog($dbgMsg = '')
-    {
-        if (!$this->errorLog($dbgMsg)) // Действительно сделать запись в ИНФО лог, но только если не было ошибок
-            \Invntrm\_d('[DEBUG_LOG] ' . $dbgMsg);
-    }
-
-    /**
-     * Check mysqli driver last errors
-     * @return bool|string
-     */
-    private function checkDriverError()
-    {
-        $additionErrorType = 'unknown';
-        $errNo             = 0;
-        $errNote           = '';
-        if ($this->stmt && $this->stmt->errno) {
-            $errNo             = $this->stmt->errno;
-            $errNote           = $this->stmt->error;
-            $additionErrorType = 'stmt';
-        } elseif ($this->hndl->errno) {
-            $errNo   = $this->hndl->errno;
-            $errNote = $this->hndl->error;
-        } elseif ($this->hndl->connect_errno) {
-            $errNo             = $this->hndl->connect_errno;
-            $errNote           = $this->hndl->connect_error;
-            $additionErrorType = 'connect';
-        }
-        return $errNo ? "[ERR_LOG] Mq $additionErrorType error #$errNo '$errNote'" : false;
-    }
-
-
-    /**
-     * @param mysqli_stmt $stmt
-     *
-     * @return array
-     */
-    function get_result($stmt)
-    {
-        $tmp            = array();
-        $special_result = $stmt->result_metadata();
-        $field_count    = $special_result->field_count;
-        for ($i = 0; $i < $field_count; ++$i) {
-            $tmp[$i] = null;
-            $stmt->bind_result($tmp[$i]);
-        }
-        return $tmp;
-    }
-
-    function close()
-    {
-        $this->hndl->close();
-    }
-
-    function  __destruct()
-    {
-        $this->hndl->close();
-    }
-
-    /**
-     * mysqli::real_escape_string (mysqli_real_escape_string)
-     * Экранирует специальные символы в строке для использования в SQL выражении,
-     * используя текущий набор символов соединения
-     *
-     * @param $str
-     *
-     * @return string
-     */
-    function esc($str)
-    {
-        return $this->hndl->real_escape_string($str);
-    }
 }
 
 
 // TODO ORM <a>http://ru.wikipedia.org/wiki/ORM</a> Doctrine ORM <a>http://docs.doctrine-project.org/projects/doctrine-orm/en/2.1/tutorials/getting-started-xml-edition.html</a>
+
