@@ -19,22 +19,21 @@ require_once "$_SERVER[DOCUMENT_ROOT]/_data/consts.php";
  */
 class Mq_Mode
 {
-    const NOSMART_ENDDATA = 0; // 0|00
-    const NOSMART_IRESULT = 1; // 0|01 // iterator internal MySQL result
-    const NOSMART_STMT = 2; // 0|10
-    const SMART_ENDDATA = 4; // 1|00
+    const SMART_DATA          = 1;
+    const RAW_DATA            = 2;
+    const ITERATIVE_RESULT    = 3;
+    const PREPARED_QUERY_STMT = 4;
 }
 
 
 /**
- * myMySQLLib
- * TODO добавить пагинацию
- * @version 5.5
+ * @version 6.0
  * 5.2 Note: insert notation changed!
  * 5.3 Note: update behaviour changed // params order is true now.
  * 5.4 Note q, qq, r are removed
  * 5.5 Note newQ, newQQ renamed end refactored into q1, q2, q3, q4
  *     Note req and parseAlxMqSyntax moved out to AlxMq class
+ * 6.0 Note req() method moved out to AlxMq child class
  */
 class Mq
 {
@@ -50,7 +49,7 @@ class Mq
      * @param string $schemeName    имя "базы данных" (способствует использованию нескольких "баз данных"[в рамках терминов mySQL])
      * @param bool   $isLoggingNeed выбрасавыть на клиента все логи
      */
-    public function Mq($schemeName = '', $isLoggingNeed = false)
+    public function __construct($schemeName = '', $isLoggingNeed = false)
     {
         if (is_array($schemeName)) {
             $opts          = $schemeName;
@@ -294,13 +293,17 @@ class Mq
     }
 }
 
-class AlxMQ extends Mq
+/**
+ * Class AlxMq
+ * @version 6.0
+ */
+class AlxMq extends Mq
 {
     protected $isLoggingRequire;
 
-    public function __construct()
+    public function __construct($schemeName = '', $isLoggingNeed = false)
     {
-
+        \Mq::__construct($schemeName, $isLoggingNeed);
     }
 
     /**
@@ -328,7 +331,7 @@ class AlxMQ extends Mq
      * @example user[staff.salary>10]?name              SELECT with RELATIONS (staff -- another table)
      * @example page[product.nm=* ref:artcl_prod]?descr,url|:.created           SELECT with RELATIONS (Является временным синтаксисом)
      * @example See another examples
-     *          $mq->newR("page[product.nm=* ref:artclPage_prod__proxy]?descr,url,title,img|:.created", 's', $prod, Mq_Mode::NOSMART_ENDDATA);
+     *          $mq->newR("page[product.nm=* ref:artclPage_prod__proxy]?descr,url,title,img|:.created", 's', $prod, Mq_Mode::RAW_DATA);
      *          $reachProdsInfo = $mq->r("product[ref:prodMainPage ref:theme]?count(video)>`all`, product.videoShwIndex>`curr`, page.url, product.nm, product.shortName| GROUP BY product.id", true, false);
      *          $poorProdsInfo = $mq->r("product[ref:prodMainPage product.videoShwIndex=-1]?0>`all`, 0>`curr`, page.url, product.nm, product.shortName", true, false);
      *          5.2 Note: insert notation changed!
@@ -420,8 +423,8 @@ class AlxMQ extends Mq
                 $part1 .= ' ON ';
                 $part1_arr          = array();
                 $k                  = 0;
-                $information_schema = new AlxMQ("information_schema");
-                $infoStmt           = $information_schema->req("COLUMNS[TABLE_SCHEMA=[SCHEME_NAME_DEFAULT] && TABLE_NAME=*]?COLUMN_NAME", '', false, Mq_Mode::NOSMART_STMT);
+                $information_schema = new AlxMq("information_schema");
+                $infoStmt           = $information_schema->req("COLUMNS[TABLE_SCHEMA=[SCHEME_NAME_DEFAULT] && TABLE_NAME=*]?COLUMN_NAME", '', false, Mq_Mode::PREPARED_QUERY_STMT);
                 array_unshift($part2ToJoinTables, $part[1]);
                 foreach ($part2ToJoinTables as $table1)
                     foreach ($part2ToJoinTables as $table2) {
@@ -510,22 +513,18 @@ class AlxMQ extends Mq
      *
      * @return string|array|bool|mysqli_result|mysqli_stmt mysqli_result
      */
-    public function req($req, $sigma = '', $params = false, $mode = Mq_Mode::SMART_ENDDATA, $isLoggingRequire = false)
+    public function req($req, $sigma = '', $params = false, $mode = Mq_Mode::SMART_DATA, $isLoggingRequire = false)
     {
-        $isHeuristicsNeed = $mode >> 2; // is «smart»
-        $isEndDataNeed    = ($mode & bindec('011')) == 0;
-        $idIResultNeed    = ($mode & bindec('011')) == 1; // *Do not to delete*
-        $isMqStmtRequire  = ($mode & bindec('011')) == 2;
-        $out              = $this->parseAlxMqSyntax($req, $sigma, $params, $isLoggingRequire);
+        $req = $this->parseAlxMqSyntax($req, $sigma, $params, $isLoggingRequire);
         //
-        if ($isHeuristicsNeed) {
-            return $this->q4($out, $sigma, $params, $isLoggingRequire);
-        } elseif ($isEndDataNeed) {
-            return $this->q3($out, $sigma, $params, $isLoggingRequire);
-        } elseif ($idIResultNeed) {
-            return $this->q2($out, $sigma, $params, $isLoggingRequire);
-        } elseif ($isMqStmtRequire) {
-            return $this->q1($out, $sigma, $params, $isLoggingRequire);
+        if ($mode == Mq_Mode::SMART_DATA) {
+            return $this->q4($req, $sigma, $params, $isLoggingRequire);
+        } elseif ($mode == Mq_Mode::RAW_DATA) {
+            return $this->q3($req, $sigma, $params, $isLoggingRequire);
+        } elseif ($mode == Mq_Mode::ITERATIVE_RESULT) {
+            return $this->q2($req, $sigma, $params, $isLoggingRequire);
+        } elseif ($mode == Mq_Mode::PREPARED_QUERY_STMT) {
+            return $this->q1($req, $sigma, $params, $isLoggingRequire);
         } else
             return false;
     }
