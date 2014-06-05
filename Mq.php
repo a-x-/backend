@@ -27,7 +27,7 @@ class Mq_Mode
 
 
 /**
- * @version 6.0
+ * @version 6.0.1
  * 5.2 Note: insert notation changed!
  * 5.3 Note: update behaviour changed // params order is true now.
  * 5.4 Note q, qq, r are removed
@@ -79,7 +79,7 @@ class Mq
      */
     protected function errorCheck($errMsg = '')
     {
-        $this->errorLog($errMsg, false);
+        $this->errorLog($errMsg, false, $this);
     }
 
     /**
@@ -133,9 +133,9 @@ class Mq
      */
     public function q4($req, $sigma = "", $params = array(), $isLoggingRequire = false)
     {
-        $rows = $this->q3($req, $sigma, $params, $isLoggingRequire);
-        $rows = \Invntrm\recursiveDegenerateArrOptimize($rows);
-        return $rows;
+        $raw   = $this->q3($req, $sigma, $params, $isLoggingRequire);
+        $smart = $this->fromRawToSmart($raw);
+        return $smart;
     }
 
     /**
@@ -151,20 +151,13 @@ class Mq
     public function q3($req, $sigma = "", $params = array(), $isLoggingRequire = false)
     {
         $isLoggingRequire = $isLoggingRequire || $this->isLoggingRequire;
-        $row              = array();
-        $res              = $this->q2($req, $sigma, $params);
-        if (preg_match("!^INSERT!", $req))
-            return $this->driver->insert_id; // При таких запросах единственное, что мб интересно: id записи
-        elseif (preg_match("!^UPDATE!", $req))
-            return preg_replace("!.*WHERE.*`?id`?=([0-9+]).*!", "$1", $req); // При таких запросах единственное, что мб интересно: id записи
-        if (!$res)
-            return false;
+        $iterative        = $this->q2($req, $sigma, $params);
+        $raw              = $this->fromIterativeToRaw($iterative, $req);
+        if ($isLoggingRequire) $this->messageLog("<b>sqlResult: </b>" . \Invntrm\varDumpRet($raw));
         //
-        for ($i = 0; $tmp = $res->fetch_array(MYSQLI_ASSOC); $i++) $row[$i] = $tmp;
-        if ($isLoggingRequire) $this->messageLog("<b>sqlResult: </b>" . \Invntrm\varDumpRet($row));
-        //
-        return $row;
+        return $raw;
     }
+
 
     /**
      * Get RAW RESULT.
@@ -179,25 +172,11 @@ class Mq
     public function q2($req, $sigma = "", $params = array(), $isLoggingRequire = false)
     {
         $isLoggingRequire = $isLoggingRequire || $this->isLoggingRequire;
-        $stmt             = $this->q1($req, $sigma, $params, $isLoggingRequire);
-
-        if ($sigma) {
-            if (!is_array($params)) $params = array($params);
-            if (strlen($sigma) != \Invntrm\true_count($params)) $this->errorLog(
-                "mq class: '$sigma' !~ " . \Invntrm\varDumpRet($params) . '; req: "' . \Invntrm\varDumpRet($req) . '"');
-            if (\Invntrm\true_count($params)) {
-                array_unshift($params, $sigma); // Расширяем начальным элементом, содержащим сигнатуру
-                $tmp = array(); // Преобразуем строки в ссылки (требуется функции call_user_func_array)
-                foreach ($params as $key => $value) $tmp[$key] = & $params[$key]; // ...
-                call_user_func_array(array($stmt, 'bind_param'), $tmp); // Запускаем $stmt->bind_param с праметрами из массива
-            }
-        }
-
-        $stmt->execute();
-        $result = $stmt->get_result(); // Выполняем, получаем результаты
-        if ($isLoggingRequire && !$result->num_rows) $this->messageLog(
-            'mq class: result is empty! Req:' . \Invntrm\varDumpRet($req)
-        );
+        $stmt             = $this->q1($req, $isLoggingRequire);
+        if ($isLoggingRequire) $this->messageLog("<b>REQ Q2</b>$req; <b>Параметры</b><br>" . \Invntrm\varDumpRet($params));
+        //
+        //
+        $result = $this->fromStmtToIterative($stmt, $sigma, $params);
         return $result;
     }
 
@@ -205,21 +184,17 @@ class Mq
      * Get STMT
      *
      * @param        $req
-     * @param string $sigma
-     * @param array  $params
      * @param bool   $isLoggingRequire
      *
+     * @internal param string $sigma
+     * @internal param array $params
      * @return bool|mysqli_stmt - Ресурс драйвера, позволяющий повторять приготовленныей запрос с параметрами
      */
-    public function q1($req, $sigma = "", $params = array(), $isLoggingRequire = false)
+    public function q1($req, $isLoggingRequire = false)
     {
         $isLoggingRequire = $isLoggingRequire || $this->isLoggingRequire;
-        if ($isLoggingRequire) $this->messageLog("<b>sqlLine-RAW: </b>$req; <b>Параметры</b><br>" . \Invntrm\varDumpRet($params));
-        $req = $this->reqPreprocessor($req);
-
-        if ($isLoggingRequire) $this->messageLog("<b>sqlLine(after 1th proc): </b>$req; ");
-
-        $this->stmt = $stmt = $this->driver->prepare($req);
+        if ($isLoggingRequire) $this->messageLog("<b>REQ Q1: </b>$req; ");
+        $stmt = $this->fromReqToStmt($req);
         if (!$stmt) {
             $this->errorLog('mq class: $stmt don`t calculated! Req:' . \Invntrm\varDumpRet($req));
             return false;
@@ -238,6 +213,13 @@ class Mq
             \Invntrm\_d('[DEBUG_LOG] ' . $dbgMsg);
     }
 
+    public function fromReqToStmt($req)
+    {
+        $req        = $this->reqPreprocessor($req);
+        $this->stmt = $stmt = $this->driver->prepare($req);
+        return $stmt;
+    }
+
     protected function reqPreprocessor($req)
     {
         $req = preg_replace_callback('/^([a-z\.\-_]+)\.sql$/i', function ($matches) {
@@ -245,8 +227,81 @@ class Mq
         }, $req);
         $req = preg_replace('!\[(?:SCHEME_NAME|TABLE_SCHEMA)\]!', '"' . $this->schemeName . '"', $req); // Название "базы данных" (в терминах mySQL)
         $req = preg_replace('!\[SCHEME_NAME_DEFAULT\]!', '"' . SCHEME_NAME_DEFAULT . '"', $req); // Название "базы данных" (в терминах mySQL)
-
         return $req;
+    }
+
+    public function fromStmtToIterative($stmt, $sigma, $params)
+    {
+        $result = \Mq::fromStmt($stmt, $sigma, $params, Mq_Mode::ITERATIVE_RESULT);
+        if (!$result->num_rows) $this->messageLog('result is empty!');
+        return $result;
+    }
+
+    /**
+     * STMT (prepared Query) -> ITERATIVE DATA
+     *
+     * @param            $stmt mysqli_stmt
+     * @param            $sigma
+     * @param            $params
+     * @param int        $mode
+     * @param string     $req  Fill if $mode == Mq_Mode::SMART_DATA
+     *
+     * @internal param \Mq|string $self__schemeName
+     * @return mixed
+     */
+    public function fromStmt($stmt, $sigma = [], $params = [], $mode = Mq_Mode::SMART_DATA, $req = '')
+    {
+        if (!is_array($params)) $params = array($params);
+        if (strlen($sigma) != \Invntrm\true_count($params))
+            $this->errorLog("'$sigma' !~ " . \Invntrm\varDumpRet($params) . '"', $this);
+        if ($sigma) {
+            if (\Invntrm\true_count($params)) {
+                array_unshift($params, $sigma); // Расширяем начальным элементом, содержащим сигнатуру
+                $tmp = array(); // Преобразуем строки в ссылки (требуется функции call_user_func_array)
+                foreach ($params as $key => $value) $tmp[$key] = & $params[$key]; // ...
+                call_user_func_array(array($stmt, 'bind_param'), $tmp); // Запускаем $stmt->bind_param с праметрами из массива
+            }
+        }
+        $stmt->execute();
+        $result = $stmt->get_result(); // Выполняем, получаем результаты
+        if ($mode == Mq_Mode::ITERATIVE_RESULT) {
+            return $result;
+        }
+        if ($mode >= Mq_Mode::RAW_DATA) {
+            $result = $this->fromStmtToIterative($stmt, $sigma, $params);
+
+            if ($mode >= Mq_Mode::SMART_DATA) {
+                $result = $this->fromIterativeToRaw($result, $req);
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * @param $iterative mysqli_result
+     * @param $req
+     *
+     * @return bool|mixed
+     */
+    public function fromIterativeToRaw($iterative, $req)
+    {
+        $row = [];
+        if (preg_match("!^INSERT!", $req))
+            return $this->driver->insert_id; // При таких запросах единственное, что мб интересно: id записи
+        elseif (preg_match("!^UPDATE!", $req))
+            return preg_replace("!.*WHERE.*`?id`?=([0-9+]).*!", "$1", $req); // При таких запросах единственное, что мб интересно: id записи
+        if (!$iterative)
+            return false;
+        //
+        while ($tmp = $iterative->fetch_array(MYSQLI_ASSOC)) $row[] = $tmp;
+        $raw = $row;
+        return $raw;
+    }
+
+    public function fromRawToSmart($raw)
+    {
+        $smart = \Invntrm\recursiveDegenerateArrOptimize($raw);
+        return $smart;
     }
 
     /**
@@ -524,7 +579,7 @@ class AlxMq extends Mq
         } elseif ($mode == Mq_Mode::ITERATIVE_RESULT) {
             return $this->q2($req, $sigma, $params, $isLoggingRequire);
         } elseif ($mode == Mq_Mode::PREPARED_QUERY_STMT) {
-            return $this->q1($req, $sigma, $params, $isLoggingRequire);
+            return $this->q1($req, $isLoggingRequire);
         } else
             return false;
     }
