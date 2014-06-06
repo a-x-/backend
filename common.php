@@ -8,7 +8,7 @@ namespace Invntrm;
 
 define('ROOT', $_SERVER['DOCUMENT_ROOT'] . '/');
 define('SRV', ROOT . '_ass/');
-$C = function($a){ return $a; };
+$C = function ($a) { return $a; };
 
 ///**
 // * @param $className
@@ -26,8 +26,10 @@ function getFNameStamp($fileMame, $isPathRewriteActive = false)
 /**
  *
  * Substitution variables into placeholders in the $template
+ *
  * @param string $template - Target text
- * @param array (mixed)[] $vars      - Set of variables
+ * @param        array     (mixed)[] $vars      - Set of variables
+ *
  * @return          string          - Specified result
  */
 function specifyTemplate($template, $vars)
@@ -44,8 +46,8 @@ function parseMetaPage($str)
 {
     //
     // Page meta header existing check
-    if(!preg_match('!^((.+?)\s*:\s*(.+)\r?\n)+\r?\n!i',$str)) {
-        return [[],$str];
+    if (!preg_match('!^((.+?)\s*:\s*(.+)\r?\n)+\r?\n!i', $str)) {
+        return [[], $str];
     }
     $rawPage = (get_preg_match('!^(.*?)(?:\r?\n){2,}\s*(.*)$!s', $str));
     if (!true_count($rawPage)) {
@@ -62,33 +64,38 @@ function parseMetaPage($str)
 
 function buildPage($path, $params_origin = [])
 {
-    if (!$path) { return buildPage('/404/'); }
+    if (!$path) {
+        return buildPage('/404/');
+    }
     $defaultPrefix = '/_views';
     list($templateWithMeta, $pageDir, $pageName) = getFileContent($path, 'html', $defaultPrefix);
-    if($templateWithMeta === false) {
+    if ($templateWithMeta === false) {
         return buildPage('/404/');
     }
     list($meta, $template) = parseMetaPage($templateWithMeta);
-    $out = $template;
-    $pageObject = get_require($pageDir.$pageName,'',false,$params_origin); // try execute template's logic
-    $css = getCss($pageDir.$pageName); // add css
-    $css = "<style>/* $path */".$css."</style>\n";
+    $out        = $template;
+    $pageObject = get_require($pageDir . $pageName, '', false, $params_origin); // try execute template's logic
+    $css        = getCss($pageDir . $pageName); // add css
+    $css        = "<style>/* $path */" . $css . "</style>\n";
     //                                                      // L  Inject   View secret       comment
     $params = [];
-    $params = array_merge($params, $_REQUEST);              // 5 DANGEROUS             add server constants
-    $params = array_merge($params, $_SESSION);              // 4 UNTRUST               add server constants
-    $params = array_merge($params, $_SERVER);               // 3 UNTRUST               add server constants
-    $params = array_merge($params, get_defined_constants());// 2 TRUST      DANGEROUS  add constants
-    $params = array_merge($params, $params_origin);         // 0 TRUST                 add page call params
-    $params = array_merge($params, $pageObject);            // 1 TRUST                 add page php script given object
+    $params = array_merge($params, $_REQUEST); // 5 DANGEROUS             add server constants
+    $params = array_merge($params, $_SESSION); // 4 UNTRUST               add server constants
+    $params = array_merge($params, $_SERVER); // 3 UNTRUST               add server constants
+    $params = array_merge($params, get_defined_constants()); // 2 TRUST      DANGEROUS  add constants
+    $params = array_merge($params, $params_origin); // 0 TRUST                 add page call params
+    $params = array_merge($params, $pageObject); // 1 TRUST                 add page php script given object
     // @todo add params filters
     //
     $paramMapping = (isset($pageObject['_PARAM_MAPPING_'])) ? $pageObject['_PARAM_MAPPING_'] : [];
-    if(!isset($params['styles'])) {$params['styles'] = $css;}
-    else { $params['styles'] = $css . $params['styles']; }
+    if (!isset($params['styles'])) {
+        $params['styles'] = $css;
+    } else {
+        $params['styles'] = $css . $params['styles'];
+    }
     if (isset($pageObject['_STOP_'])) {
         $stopRef = $pageObject['_STOP_']; // ref to redirect page or null for 404
-        if(!$stopRef) {
+        if (!$stopRef) {
             return buildPage('/404/');
         }
         header("Location: $stopRef");
@@ -118,9 +125,11 @@ function buildPage($path, $params_origin = [])
 /**
  *
  * Substitution variables into placeholders in the $template
+ *
  * @param string $template - Target text
- * @param array (mixed)[] $vars      - Set of variables
- * @param array $paramMapping
+ * @param        array     (mixed)[] $vars      - Set of variables
+ * @param array  $paramMapping
+ *
  * @return          string          - Specified result
  */
 function specifyTemplateExtended($template, $vars = [], $paramMapping = [])
@@ -166,9 +175,11 @@ function specifyTemplateExtended($template, $vars = [], $paramMapping = [])
 /**
  * @example getFileContent('/profile','html','/path') -> content of /path/profile.html
  * @example getFileContent('... content ...') -> ... content ...
+ *
  * @param $fileName__filePath
  * @param $defaultExtension
  * @param $defaultPrefix
+ *
  * @return array|string
  */
 function getFileContent($fileName__filePath, $defaultExtension, $defaultPrefix)
@@ -177,7 +188,7 @@ function getFileContent($fileName__filePath, $defaultExtension, $defaultPrefix)
     if (preg_match('!^\/[^\n]*$!', $fileName__filePath)) { // Load file if path present
         $filePath = $fileName__filePath;
         if (!preg_match('!' . $defaultPrefix . '!', $filePath)) {
-            if($filePath == '/') {
+            if ($filePath == '/') {
                 $filePath = '/_start';
             }
             $filePath = ROOT . $defaultPrefix . $filePath;
@@ -192,7 +203,7 @@ function getFileContent($fileName__filePath, $defaultExtension, $defaultPrefix)
     } else {
         $template = $fileName__filePath;
     }
-    return [$template, dirname($filePath).'/', preg_replace('!\..*?$!','',basename($filePath))];
+    return [$template, dirname($filePath) . '/', preg_replace('!\..*?$!', '', basename($filePath))];
 }
 
 
@@ -222,17 +233,19 @@ function get_require($phpFileName, $prefix = '', $isStrict = false, $params = []
         return [];
 }
 
-function true_count($array){
+function true_count($array)
+{
     return (is_array($array)) ? count($array) : 0;
 }
 
-function getCss ($path, $prefix = null, $isStrict = false){
-    $path = $prefix . preg_replace('!/$!', '', $path) . '.css';
+function getCss($path, $prefix = null, $isStrict = false)
+{
+    $path        = $prefix . preg_replace('!/$!', '', $path) . '.css';
     $isFileExist = is_file($path);
     if ($isStrict) if (!$isFileExist) {
         return false;
     }
-    if($isFileExist)
+    if ($isFileExist)
         return file_get_contents($path);
     else
         return '';
@@ -276,13 +289,15 @@ function bugReport2($type, $text)
 /**
  * @example getFileInfo('me.svg') -> 'image/svg+xml'
  * @example getFileInfo('end.css') -> false // end.css is not exist
- * @param $filePath
+ *
+ * @param     $filePath
  * @param int $typeInfo - http://www.php.net/manual/en/fileinfo.constants.php
+ *
  * @return mixed
  */
 function getFileInfo($filePath, $typeInfo = FILEINFO_MIME_TYPE)
 {
-    $fInfo = finfo_open();
+    $fInfo       = finfo_open();
     $fInfoResult = fInfo_file($fInfo, $filePath, $typeInfo);
     return $fInfoResult;
 }
@@ -290,7 +305,9 @@ function getFileInfo($filePath, $typeInfo = FILEINFO_MIME_TYPE)
 
 /**
  * Decode JSON file as associative array by its path
+ *
  * @param $path
+ *
  * @return mixed
  */
 function json_decode_file($path)
@@ -301,8 +318,10 @@ function json_decode_file($path)
 /**
  * Вычислить значение многомерного массива, ключ которого задан строкой key1.key2.key3. ... keyN
  * @example evalArrayByPath('a.b.c',[a=>[b=>[c=>1]]]) -> 1
+ *
  * @param $path
  * @param $root
+ *
  * @return mixed|bool
  */
 function evalArrayByPath($path, $root)
@@ -318,9 +337,11 @@ function evalArrayByPath($path, $root)
 
 /**
  * Специализировать маску (подставить одно из значений вместо указанного плейсхолдера)
- * @param $mask string
- * @param $placeholder string
- * @param $value string
+ *
+ * @param $mask        string - 'blah blah %user_name%, hi!'
+ * @param $placeholder string - 'user_name'
+ * @param $value       string   $user_name
+ *
  * @return string
  */
 function specializeMask2($mask, $placeholder, $value)
@@ -332,7 +353,9 @@ function specializeMask2($mask, $placeholder, $value)
  * Return "String of some text" from some "sTrIng OF some TeXT".
  * First letter of none unicode text turn to uppercase,
  * another letters turn to lowercase
+ *
  * @param $string
+ *
  * @return string
  */
 function uppercaseFirstLetter($string)
@@ -343,7 +366,9 @@ function uppercaseFirstLetter($string)
 /**
  * Return "Строку некоторого текста", from some "сТрокУ НЕКОТОРОГО текста"
  * First letter of unicode text turn to uppercase, another letters turn to lowercase
+ *
  * @param $string
+ *
  * @return string
  */
 function mb_uppercaseFirstLetter($string)
@@ -394,9 +419,11 @@ function printRRet($var)
 
 /**
  * Filter array by white or black list
- * @param $array
+ *
+ * @param       $array
  * @param array $whiteList
  * @param array $blackList
+ *
  * @return array
  */
 function array_filter_bwLists($array, $whiteList = [], $blackList = [])
@@ -428,14 +455,16 @@ function get_preg_match($pattern, $string)
 /**
  * Return unshifted array (none modify)
  * a + [b,c] -> [a,b,c]
+ *
  * @param $var
  * @param $array
+ *
  * @return mixed
  */
 function get_array_unshift($var, $array)
 {
     $array2 = $array;
-    array_unshift($array2,$var); // no returns new $array, but modify input array
+    array_unshift($array2, $var); // no returns new $array, but modify input array
     return $array2;
 }
 
@@ -445,6 +474,7 @@ function get_array_unshift($var, $array)
  * @example var_dump(akv2okv([0=>[0=>'key0',1=>'val0'],1=>[0=>'key1',1=>'val1'],2=>[0=>'key2',1=>'val2']]));
  *
  * @param $numberingArray
+ *
  * @return array
  */
 function akv2okv($numberingArray)
@@ -453,47 +483,56 @@ function akv2okv($numberingArray)
     array_walk($numberingArray, function (&$item) use (&$associatedArray) {
         if (!is_array($item)) return;
         $associatedArray[$item[0]] = $item[1];
-//        unset($item);
+        //        unset($item);
     });
     return $associatedArray;
 }
 
 /**
  * Get associative array in human readable form
- * @param $array
+ *
+ * @param     $array
+ * @param int $level
+ *
  * @return string
  */
-function hruDump($array)
+function hruDump($array, $level = 0)
 {
+    $tpl = '<div style="border-left:20px #e5e5e5 solid;">%out%</div>';
     $out = '';
     foreach ($array as $i => $el) {
-        $out .= "<p><b>$i:</b> $el\n";
+        if (is_array($el)) {
+            $el = hruDump($el, $level + 1);
+        }
+        $out .= "<p style='margin-left: 1em'><b>$i:</b> $el\n";
     }
+    $out = specializeMask2($tpl,'out',$out);
+//    _d(['hruDump', $out]);
     return $out;
 }
 
 /**
  * @deprecated have to use PHPMailer based solutions
+ *
  * @param $projectName
  * @param $projectMails array - Should contains [mailer, destination]
  * @param $theme
- * @param $data array - Should contains [userName,userMail]
- * @param $isUserCopy bool - Is user e-mail copy require (send mail for user, also?)
+ * @param $data         array - Should contains [userName,userMail]
+ * @param $isUserCopy   bool - Is user e-mail copy require (send mail for user, also?)
+ *
  * @return bool
  */
 function mailSend($projectName, $projectMails, $theme, $data, $isUserCopy)
 {
-    foreach ($data as &$value) {
-        $value = htmlspecialchars($value);
-    }
+    _d(['mailSend', $projectName, $projectMails, $theme, $data, $isUserCopy]);
     //
     // Recipients
-    $ownEmail = $projectMails['destination']
+    $ownEmail = (is_array($projectMails['destination']) ? join(',', $projectMails['destination']) : $projectMails['destination'])
         . ($isUserCopy && isset($data['userMail']) ? ',' . $data['userMail'] : '');
     //
     // Message subject
     $uniqueId = uniqid('#', true);
-    $subject = "$projectName/ $theme $uniqueId";
+    $subject  = "$projectName/ $theme $uniqueId";
     //
     // MIME message type
     $headers = "MIME-Version: 1.0\r\n" .
@@ -504,11 +543,12 @@ function mailSend($projectName, $projectMails, $theme, $data, $isUserCopy)
     //
     // Message text
     $hruData = hruDump($data);
-    $msg = "<p>$theme</p><p>$hruData</p>";
+    $msg     = "<p>$theme</p><p>$hruData</p>";
     //
     // Send mail
     ini_set("SMTP", "localhost");
     ini_set("smtp_port", "25");
+    _d(['before mail()', $ownEmail, $subject, $msg, $headers]);
     return (mail($ownEmail, $subject, $msg, $headers));
 }
 
@@ -525,44 +565,43 @@ function mailSend($projectName, $projectMails, $theme, $data, $isUserCopy)
  * Note: the $add_dashes option will increase the length of the password by
  * floor(sqrt(N)) characters.
  *
- * @param int $length
- * @param bool $add_dashes
+ * @param int    $length
+ * @param bool   $add_dashes
  * @param string $available_sets - {l:a-z,  u:A-Z,  d:2-9,  s:specials}
+ *
  * @return string
  */
 function generateStrongPassword($length = 9, $add_dashes = false, $available_sets = 'luds')
 {
     $sets = array();
-    if(strpos($available_sets, 'l') !== false)
+    if (strpos($available_sets, 'l') !== false)
         $sets[] = 'abcdefghjkmnpqrstuvwxyz';
-    if(strpos($available_sets, 'u') !== false)
+    if (strpos($available_sets, 'u') !== false)
         $sets[] = 'ABCDEFGHJKMNPQRSTUVWXYZ';
-    if(strpos($available_sets, 'd') !== false)
+    if (strpos($available_sets, 'd') !== false)
         $sets[] = '23456789';
-    if(strpos($available_sets, 's') !== false)
+    if (strpos($available_sets, 's') !== false)
         $sets[] = '!@#$%&*?';
 
-    $all = '';
+    $all      = '';
     $password = '';
-    foreach($sets as $set)
-    {
+    foreach ($sets as $set) {
         $password .= $set[array_rand(str_split($set))];
         $all .= $set;
     }
 
     $all = str_split($all);
-    for($i = 0; $i < $length - true_count($sets); $i++)
+    for ($i = 0; $i < $length - true_count($sets); $i++)
         $password .= $all[array_rand($all)];
 
     $password = str_shuffle($password);
 
-    if(!$add_dashes)
+    if (!$add_dashes)
         return $password;
 
     $dash_len = floor(sqrt($length));
     $dash_str = '';
-    while(strlen($password) > $dash_len)
-    {
+    while (strlen($password) > $dash_len) {
         $dash_str .= substr($password, 0, $dash_len) . '-';
         $password = substr($password, $dash_len);
     }
@@ -581,6 +620,7 @@ function generateStrongPassword($length = 9, $add_dashes = false, $available_set
  *          etc...
  *
  * @param $arr
+ *
  * @return array|null
  */
 function recursiveDegenerateArrOptimize($arr)
@@ -605,25 +645,31 @@ function recursiveDegenerateArrOptimize($arr)
  * @example $ew2 = (new \Mq())->newR('user[1]?ym_token2_encrypted,ym_token2_iv');
  * @example $code = decrypt_data('12345',$ew2['ym_token2_iv'],$ew2['ym_token2_encrypted']);
  * @example $code;
+ *
  * @param $key
  * @param $text
+ *
  * @return string
  */
-function encrypt_data($key, $text){
-    $iv_size = mcrypt_get_iv_size(MCRYPT_RIJNDAEL_256, MCRYPT_MODE_ECB);
-    $iv = mcrypt_create_iv($iv_size, MCRYPT_RAND);
+function encrypt_data($key, $text)
+{
+    $iv_size        = mcrypt_get_iv_size(MCRYPT_RIJNDAEL_256, MCRYPT_MODE_ECB);
+    $iv             = mcrypt_create_iv($iv_size, MCRYPT_RAND);
     $encrypted_text = mcrypt_encrypt(MCRYPT_RIJNDAEL_256, $key, $text, MCRYPT_MODE_ECB, $iv);
-    return [$encrypted_text,$iv];
+    return [$encrypted_text, $iv];
 }
+
 /**
  * @param $key
  * @param $iv
  * @param $text
+ *
  * @return string
  */
-function decrypt_data($key, $iv, $text){
-//    $iv_size = mcrypt_get_iv_size(MCRYPT_RIJNDAEL_256, MCRYPT_MODE_ECB);
-//    $iv = mcrypt_create_iv($iv_size, MCRYPT_RAND);
+function decrypt_data($key, $iv, $text)
+{
+    //    $iv_size = mcrypt_get_iv_size(MCRYPT_RIJNDAEL_256, MCRYPT_MODE_ECB);
+    //    $iv = mcrypt_create_iv($iv_size, MCRYPT_RAND);
     $decrypted_text = mcrypt_decrypt(MCRYPT_RIJNDAEL_256, $key, $text, MCRYPT_MODE_ECB, $iv);
     return rtrim($decrypted_text, "\0");
 }
