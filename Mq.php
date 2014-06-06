@@ -79,7 +79,7 @@ class Mq
      */
     protected function errorCheck($errMsg = '')
     {
-        $this->errorLog($errMsg, false, $this);
+        $this->errorLog($errMsg, false);
     }
 
     /**
@@ -253,7 +253,7 @@ class Mq
     {
         if (!is_array($params)) $params = array($params);
         if (strlen($sigma) != \Invntrm\true_count($params))
-            $this->errorLog("'$sigma' !~ " . \Invntrm\varDumpRet($params) . '"', $this);
+            $this->errorLog("'$sigma' !~ " . \Invntrm\varDumpRet($params) . '"');
         if ($sigma) {
             if (\Invntrm\true_count($params)) {
                 array_unshift($params, $sigma); // Расширяем начальным элементом, содержащим сигнатуру
