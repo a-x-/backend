@@ -101,13 +101,13 @@ function buildPage($path, $params_origin = [])
     $css        = "<style>/* $path */" . $css . "</style>\n";
     //                                                      // L  Inject   View secret       comment
     $params = [];
-    $params = array_merge($params, $_REQUEST); // 5 DANGEROUS          add server constants
-    if (isset($_SESSION))
+    $params = array_merge($params, $_REQUEST);     // 5 DANGEROUS          add server constants
+    if(isset($_SESSION))
         $params = array_merge($params, $_SESSION); // 4 UNTRUST            add server constants
-    $params = array_merge($params, $_SERVER); // 3 UNTRUST            add server constants
+    $params = array_merge($params, $_SERVER);      // 3 UNTRUST            add server constants
     $params = array_merge($params, get_defined_constants()); // 2 TRUST    DANGEROUS  add constants
-    $params = array_merge($params, $params_origin); // 0 TRUST              add page call params
-    $params = array_merge($params, $pageObject); // 1 TRUST              add page php script given object
+    $params = array_merge($params, $params_origin);// 0 TRUST              add page call params
+    $params = array_merge($params, $pageObject);   // 1 TRUST              add page php script given object
     // @todo add params filters
     //
     $paramMapping = (isset($pageObject['_PARAM_MAPPING_'])) ? $pageObject['_PARAM_MAPPING_'] : [];
