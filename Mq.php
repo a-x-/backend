@@ -583,7 +583,6 @@ class AlxMq extends Mq
         } else
             return false;
     }
-
 }
 
 

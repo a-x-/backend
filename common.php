@@ -70,7 +70,7 @@ function buildPage($path, $params_origin = [])
     }
     list($meta, $template) = parseMetaPage($templateWithMeta);
     $out = $template;
-    $pageObject = get_require($pageDir.$pageName/*, ROOT . '_views/'*/); // try execute template's logic
+    $pageObject = get_require($pageDir.$pageName,'',false,$params_origin); // try execute template's logic
     $css = getCss($pageDir.$pageName); // add css
     $css = "<style>/* $path */".$css."</style>\n";
     //                                                      // L  Inject   View secret       comment
@@ -200,12 +200,15 @@ function getFileContent($fileName__filePath, $defaultExtension, $defaultPrefix)
  * Node.js like require function.
  * @example $fs = require('fs');
  * @example fs.php: $exports = []; $exports['read'] = function (name){...}
- * @param $phpFileName
- * @param $prefix
- * @param bool $isStrict
+ *
+ * @param        $phpFileName
+ * @param string $prefix
+ * @param bool   $isStrict
+ * @param array  $params
+ *
  * @return array
  */
-function get_require($phpFileName, $prefix = '', $isStrict = false)
+function get_require($phpFileName, $prefix = '', $isStrict = false, $params = [])
 {
     $phpFileName = $prefix . preg_replace('!/$!', '', $phpFileName) . '.php';
     if ($isStrict) {
