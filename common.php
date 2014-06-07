@@ -11,6 +11,28 @@ define('SRV', ROOT . '_ass/');
 $C = function ($a) { return $a; };
 
 ///**
+// * Convert error messages to Exceptions
+// *
+// * @param $errNo
+// * @param $errStr
+// * @param $errFile
+// * @param $errLine
+// *
+// * @throws \ErrorException
+// */
+//function exception_error_handler($errNo, $errStr, $errFile, $errLine)
+//{
+//    throw new \ErrorException($errStr, $errNo, 0, $errFile, $errLine);
+//}
+//
+//set_error_handler("exception_error_handler");
+
+function true_get ($array,$key)
+{
+    return isset($array[$key]) ? $array[$key] : '';
+}
+
+///**
 // * @param $className
 // */
 //function __autoload($className)
@@ -79,12 +101,13 @@ function buildPage($path, $params_origin = [])
     $css        = "<style>/* $path */" . $css . "</style>\n";
     //                                                      // L  Inject   View secret       comment
     $params = [];
-    $params = array_merge($params, $_REQUEST); // 5 DANGEROUS             add server constants
-    $params = array_merge($params, $_SESSION); // 4 UNTRUST               add server constants
-    $params = array_merge($params, $_SERVER); // 3 UNTRUST               add server constants
-    $params = array_merge($params, get_defined_constants()); // 2 TRUST      DANGEROUS  add constants
-    $params = array_merge($params, $params_origin); // 0 TRUST                 add page call params
-    $params = array_merge($params, $pageObject); // 1 TRUST                 add page php script given object
+    $params = array_merge($params, $_REQUEST); // 5 DANGEROUS          add server constants
+    if (isset($_SESSION))
+        $params = array_merge($params, $_SESSION); // 4 UNTRUST            add server constants
+    $params = array_merge($params, $_SERVER); // 3 UNTRUST            add server constants
+    $params = array_merge($params, get_defined_constants()); // 2 TRUST    DANGEROUS  add constants
+    $params = array_merge($params, $params_origin); // 0 TRUST              add page call params
+    $params = array_merge($params, $pageObject); // 1 TRUST              add page php script given object
     // @todo add params filters
     //
     $paramMapping = (isset($pageObject['_PARAM_MAPPING_'])) ? $pageObject['_PARAM_MAPPING_'] : [];
@@ -199,7 +222,7 @@ function getFileContent($fileName__filePath, $defaultExtension, $defaultPrefix)
             $filePath = preg_replace('!/$!', '', $filePath);
             $filePath .= '.' . ($defaultExtension ? $defaultExtension : 'html');
         }
-        $template = file_get_contents($filePath);
+        $template = (file_exists($filePath)) ? file_get_contents($filePath) : false;
     } else {
         $template = $fileName__filePath;
     }
@@ -506,8 +529,8 @@ function hruDump($array, $level = 0)
         }
         $out .= "<p style='margin-left: 1em'><b>$i:</b> $el\n";
     }
-    $out = specializeMask2($tpl,'out',$out);
-//    _d(['hruDump', $out]);
+    $out = specializeMask2($tpl, 'out', $out);
+    //    _d(['hruDump', $out]);
     return $out;
 }
 
@@ -524,11 +547,12 @@ function hruDump($array, $level = 0)
  */
 function mailSend($projectName, $projectMails, $theme, $data, $isUserCopy)
 {
+    if (empty($data['userName'])) $data['userName'] = 'Посетитеть';
     _d(['mailSend', $projectName, $projectMails, $theme, $data, $isUserCopy]);
     //
     // Recipients
     $ownEmail = (is_array($projectMails['destination']) ? join(',', $projectMails['destination']) : $projectMails['destination'])
-        . ($isUserCopy && isset($data['userMail']) ? ',' . $data['userMail'] : '');
+        . ($isUserCopy && !empty($data['userMail']) ? ',' . $data['userMail'] : '');
     //
     // Message subject
     $uniqueId = uniqid('#', true);
