@@ -466,6 +466,23 @@ function array_filter_bwLists($array, $whiteList = [], $blackList = [])
     }
 }
 
+/**
+ * @example  array_filter_bwListsByKeys(['a'=>1,'b'=>2,'c'=>3], ['a'], null) --> ['a'=>1]
+ * @example  array_filter_bwListsByKeys(['a'=>1,'b'=>2,'c'=>3], null, ['a']) --> ['b'=>2,'c'=>3]
+ *
+ * @param       $array
+ * @param array $whiteList
+ * @param array $blackList
+ *
+ * @return array
+ */
+function array_filter_bwListsByKeys($array,$whiteList = [], $blackList = [])
+{
+    if($whiteList)$whiteList = array_walk($whiteList, function (&$el,&$key) use ($array){$el = ''; $key = $array[$key];});
+    if($blackList)$blackList = array_walk($blackList, function (&$el,&$key) use ($array){$el = ''; $key = $array[$key];});
+    return array_filter_bwLists($array,$whiteList,$blackList);
+}
+
 
 function array_subtraction_key($arr1, $arr2)
 {
