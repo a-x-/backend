@@ -28,7 +28,7 @@ class Mq_Mode
 
 
 /**
- * @version 7.0.0
+ * @version 7.0.1
  * 5.2 Note: insert notation changed!
  * 5.3 Note: update behaviour changed // params order is true now.
  * 5.4 Note q, qq, r are removed
@@ -82,6 +82,26 @@ class Mq
          * В настройках mySQL-сервера (my.conf) или php-командой из mySQL API:
          * $this->driver->real_query('set names utf8');
          */
+    }
+
+    public function startTransaction()
+    {
+        if($this->driver->autocommit(false))
+            throw new MqException('autocommit=false was not set',[],$this->getCheckDriverError());
+    }
+
+    public function commitTransaction()
+    {
+        if($this->driver->commit())
+            throw new MqException('commit was not success',[],$this->getCheckDriverError());
+        if($this->driver->autocommit(true))
+            throw new MqException('autocommit=true was not set',[],$this->getCheckDriverError());
+    }
+
+    public function rollbackTransaction()
+    {
+        if($this->driver->rollback())
+            throw new MqException('rollback was not success',[],$this->getCheckDriverError());
     }
 
     /**
