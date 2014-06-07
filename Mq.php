@@ -30,7 +30,7 @@ class Mq_Mode
 
 
 /**
- * @version 7.0.1
+ * @version 6.0.3
  * 5.2 Note: insert notation changed!
  * 5.3 Note: update behaviour changed // params order is true now.
  * 5.4 Note q, qq, r are removed
@@ -538,8 +538,8 @@ class AlxMq extends Mq
                 if (isset($part[5]) && $part[5] != '') $part[6] = $part[1] . '.' . ($part[6] == '' ? 'id' : $part[6]);
             } // if ($part2ToJoinTables_cnt) мультитабличная предобработка
 
-            $part[3] = preg_replace('!COUNT\s*([^\(]|$)!i', "COUNT($part[1].id)$1", $part[3]); //  Замена COUNT на COUNT(PrimaryTable.id)
-            $part[3] = preg_replace('!COUNT\s*\(([^\.]*?)\)!i', "COUNT($1.id)", $part[3]); //      Замена COUNT(SomeTable) на COUNT(SomeTable.id)
+            $part[3] = preg_replace('!(?:^|[^a-z0-9_])COUNT\s*([^\(]|$)!i', "COUNT($part[1].id)$1", $part[3]); //  Замена COUNT на COUNT(PrimaryTable.id)
+            $part[3] = preg_replace('!(?:^|[^a-z0-9_])COUNT\s*\(([^\.]*?)\)!i', "COUNT($1.id)", $part[3]); //      Замена COUNT(SomeTable) на COUNT(SomeTable.id)
             if (!isset($part[7])) $part[7] = "";
             if (trim($part[7])) if (preg_match('/\blimit\b/', $part[7])) {
                 $limit   = " $part[7] ";
