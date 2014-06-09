@@ -1,5 +1,7 @@
 <?php
 /**
+ * Обёртка над mysqli (Mq) и тупая ORM (AlxMq).
+ *
  * ** Goal: ИМПОРТИРОВАНО ИЗ SP 21-го МАРТА 2013-го **
  * ** Sp: ИМПОРТИРОВАНО ИЗ Goal 23-го августа 2013-го **
  * ** COMMON: ИМПОРТИРОВАНО ИЗ SP 26-го МАЯ 2014-го **
@@ -22,7 +24,7 @@ class Mq_Mode
     const SMART_DATA          = 4;
     const RAW_DATA            = 3;
     const ITERATIVE_RESULT    = 2;
-    const PREPARED_QUERY_STMT = 1;
+    const PREPARED_STMT = 1;
     const REQUEST             = 0;
 }
 
@@ -501,7 +503,7 @@ class AlxMq extends Mq
                 $part1_arr          = array();
                 $k                  = 0;
                 $information_schema = new AlxMq("information_schema");
-                $infoStmt           = $information_schema->req("COLUMNS[TABLE_SCHEMA=[SCHEME_NAME_DEFAULT] && TABLE_NAME=*]?COLUMN_NAME", '', false, Mq_Mode::PREPARED_QUERY_STMT);
+                $infoStmt           = $information_schema->req("COLUMNS[TABLE_SCHEMA=[SCHEME_NAME_DEFAULT] && TABLE_NAME=*]?COLUMN_NAME", '', false, Mq_Mode::PREPARED_STMT);
                 array_unshift($part2ToJoinTables, $part[1]);
                 foreach ($part2ToJoinTables as $table1)
                     foreach ($part2ToJoinTables as $table2) {
