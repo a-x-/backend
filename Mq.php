@@ -28,7 +28,7 @@ class Mq_Mode
 
 
 /**
- * @version 6.0.3
+ * @version 7.0.3
  * 5.2 Note: insert notation changed!
  * 5.3 Note: update behaviour changed // params order is true now.
  * 5.4 Note q, qq, r are removed
@@ -59,6 +59,10 @@ class Mq
      */
     public function __construct($schemeName = '', $isLog = false)
     {
+        if(!is_string($schemeName) && !is_array($schemeName)) {
+            $isLog = $schemeName;
+            $schemeName = '';
+        }
         if (is_array($schemeName)) {
             $args       = $schemeName;
             $schemeName = \Invntrm\true_get($args, 'schemeName');
