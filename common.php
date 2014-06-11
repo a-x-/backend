@@ -160,7 +160,7 @@ function specifyTemplateExtended($template, $vars = [], $paramMapping = [])
     $out = $template;
     //
     // Replace simple variable placeholders
-    $out = preg_replace_callback('/%([a-z_\-]+?)%/i',
+    $out = preg_replace_callback('/%([a-z0-9_\-]+?)%/i',
         function ($matches) use ($vars, $paramMapping) {
             if (
                 $paramMapping
