@@ -39,7 +39,6 @@ class Mq_Mode
  * 6.0 Note req() method moved out to AlxMq child class
  * 7.0 Note replace chaotic `false` returns by throw Exceptions
  *
- * @TODO    Add transactions
  */
 class Mq
 {
@@ -104,6 +103,8 @@ class Mq
     {
         if($this->driver->rollback())
             throw new MqException('rollback was not success',[],$this->getCheckDriverError());
+        if($this->driver->autocommit(false))
+            throw new MqException('rollback: autocommit=false was not set',[],$this->getCheckDriverError());
     }
 
     /**
