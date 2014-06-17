@@ -11,28 +11,6 @@ define('SRV', ROOT . '_ass/');
 $C = function ($a) { return $a; };
 
 ///**
-// * Convert error messages to Exceptions
-// *
-// * @param $errNo
-// * @param $errStr
-// * @param $errFile
-// * @param $errLine
-// *
-// * @throws \ErrorException
-// */
-//function exception_error_handler($errNo, $errStr, $errFile, $errLine)
-//{
-//    throw new \ErrorException($errStr, $errNo, 0, $errFile, $errLine);
-//}
-//
-//set_error_handler("exception_error_handler");
-
-function true_get ($array,$key)
-{
-    return isset($array[$key]) ? $array[$key] : '';
-}
-
-///**
 // * @param $className
 // */
 //function __autoload($className)
@@ -222,7 +200,7 @@ function getFileContent($fileName__filePath, $defaultExtension, $defaultPrefix)
             $filePath = preg_replace('!/$!', '', $filePath);
             $filePath .= '.' . ($defaultExtension ? $defaultExtension : 'html');
         }
-        $template = (file_exists($filePath)) ? file_get_contents($filePath) : false;
+        $template = file_get_contents($filePath);
     } else {
         $template = $fileName__filePath;
     }
@@ -546,8 +524,8 @@ function hruDump($array, $level = 0)
         }
         $out .= "<p style='margin-left: 1em'><b>$i:</b> $el\n";
     }
-    $out = specializeMask2($tpl, 'out', $out);
-    //    _d(['hruDump', $out]);
+    $out = specializeMask2($tpl,'out',$out);
+//    _d(['hruDump', $out]);
     return $out;
 }
 
@@ -564,12 +542,11 @@ function hruDump($array, $level = 0)
  */
 function mailSend($projectName, $projectMails, $theme, $data, $isUserCopy)
 {
-    if (empty($data['userName'])) $data['userName'] = 'Посетитеть';
     _d(['mailSend', $projectName, $projectMails, $theme, $data, $isUserCopy]);
     //
     // Recipients
     $ownEmail = (is_array($projectMails['destination']) ? join(',', $projectMails['destination']) : $projectMails['destination'])
-        . ($isUserCopy && !empty($data['userMail']) ? ',' . $data['userMail'] : '');
+        . ($isUserCopy && isset($data['userMail']) ? ',' . $data['userMail'] : '');
     //
     // Message subject
     $uniqueId = uniqid('#', true);
