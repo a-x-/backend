@@ -34,6 +34,7 @@ class Mq_Mode
  * 5.5 Note newQ, newQQ renamed end refactored into q1, q2, q3, q4
  *     Note req and parseAlxMqSyntax moved out to AlxMq class
  * 6.0 Note req() method moved out to AlxMq child class
+ * 7.0-alt Alternative 7.0. AlxMq syntax no-backward compatible changed
  */
 class Mq
 {
@@ -383,6 +384,8 @@ class AlxMq extends Mq
      * @example user[namm='alx']?pic                    SELECT
      * @example user['alx']?pic                         SELECT (same)
      * @example user[n=1&&L=2]?pic|:.orderCol           SELECT with ORDER BY orderCol DESC
+     * @example user[n=1&&L=2]?pic|:.orderCol,.:oc2     SELECT with ORDER BY orderCol DESC, oc2 ASC
+     * @example user[n=1&&L=2]?pic|:.oc|gc              SELECT with ORDER BY oc DESC GROUP BY gc
      * @example user[id=12347]?pic=new.jpg              UPDATE
      * @example user[12347]?pic=new.jpg                 UPDATE (same)
      * @example user[pic='new.jpg',name='dec A. orz']>  INSERT
@@ -404,6 +407,7 @@ class AlxMq extends Mq
      */
     protected function parseAlxMqSyntax($reqLine, &$sigma, &$params, $isLoggingRequire = false)
     {
+        $reqLine = preg_replace(['/order/i','/group/i'],'`$0`',$reqLine);
         // Declaration list. *NOT TO DELETE*
         //
         // $part = array();
@@ -444,9 +448,9 @@ class AlxMq extends Mq
                 $part[2] = $part2Preprocessor($part[2]);
                 return "INSERT INTO $table SET $part[2]";
             }
-            preg_match('/^([a-z_]+)\[\s*(.*)\s*\]\?([a-z0-9_,`\.\'=*? >\(\)]+)(\|(?:(\.:|:\.)\s*([\S]*))?)?(?:\s+(.*))?\s*$/i', $req, $part); //           Разбить alx-запрос на составляющие
+            preg_match('/^([a-z_]+)\[\s*(.*)\s*\]\?([a-z0-9_,`\.\'=*? >\(\)]+)(?:\|((?:\s*(?:\.:|:\.)\s*[^\|]+?)+))?(?:\|(.*))?\s*$/i', $req, $part); //           Разбить alx-запрос на составляющие
             /*
-             * [1]--primary_table [2]--condition [3]--aim [4: [5]--.:|:.--order_dir [6]--order_col [7]--group]
+             * [1]--primary_table [2]--condition [3]--aim [4]-- order_col, order_dir  [5]--group
              */
 
             $part[2] = $part2Preprocessor(@$part[2]);
@@ -514,16 +518,16 @@ class AlxMq extends Mq
                     $part3_parts
                 );
                 $part[3]     = join(",   ", $part3_parts);
-                if (isset($part[5]) && $part[5] != '') $part[6] = $part[1] . '.' . ($part[6] == '' ? 'id' : $part[6]);
+//                if (isset($part[5]) && $part[5] != '') $part[6] = $part[1] . '.' . ($part[6] == '' ? 'id' : $part[6]);
             } // if ($part2ToJoinTables_cnt) мультитабличная предобработка
 
             $part[3] = preg_replace('!(?:^|[^a-z0-9_])COUNT\s*([^\(]|$)!i', "COUNT($part[1].id)$1", $part[3]); //  Замена COUNT на COUNT(PrimaryTable.id)
             $part[3] = preg_replace('!(?:^|[^a-z0-9_])COUNT\s*\(([^\.]*?)\)!i', "COUNT($1.id)", $part[3]); //      Замена COUNT(SomeTable) на COUNT(SomeTable.id)
-            if (!isset($part[7])) $part[7] = "";
-            if (trim($part[7])) if (preg_match('/\blimit\b/', $part[7])) {
-                $limit   = " $part[7] ";
-                $part[7] = '';
-            } else $part[7] = " GROUP BY $part[7] ";
+            if (!isset($part[5])) $part[5] = "";
+            if (trim($part[5])) if (preg_match('/\blimit\b/', $part[5])) {
+                $limit   = " $part[5] ";
+                $part[5] = '';
+            } else $part[5] = " GROUP BY $part[5] ";
             $part2 = (trim($part[2]) == "" ? "" : " WHERE $part[2]");
             //
             // request
@@ -531,8 +535,11 @@ class AlxMq extends Mq
             if (strpos($part[3], '=') === false) {
                 if (preg_match('!(?:^|\s+)id\s*=!', $part[1])) // Необходима одна запись
                     $limit = ' LIMIT 1';
-                if (isset($part[5]) && $part[5] != '') // Обнаружено правило сортировки
-                    $orderOptionStr = 'ORDER BY ' . $part[6] . ' ' . ($part[5] == ':.' ? ' DESC ' : ' ASC ');
+                if (!empty($part[4]) && preg_match('/:/',$part[4])) // Обнаружено правило сортировки
+                {
+                    $orderOptionStr = 'ORDER BY ';
+                    $orderOptionStr .= preg_replace(['/:\.\s*([^\s,]+)/', '/\.:\s*([^\s,]+)/'],['$1 DESC ', '$1 ASC '],$part[4]);
+                }
                 $out .= "SELECT $part[3] FROM $part1 $part2 $part[7] $orderOptionStr" . $limit;
             }
             //
