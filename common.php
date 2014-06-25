@@ -32,6 +32,10 @@ function true_get ($array,$key)
     return isset($array[$key]) ? $array[$key] : '';
 }
 
+function true_session_start(){
+    if(session_status() == PHP_SESSION_NONE) session_start();
+}
+
 ///**
 // * @param $className
 // */
@@ -697,4 +701,68 @@ function decrypt_data($key, $iv, $text)
     $decrypted_text = mcrypt_decrypt(MCRYPT_RIJNDAEL_256, $key, $text, MCRYPT_MODE_ECB, $iv);
     return rtrim($decrypted_text, "\0");
 }
+
+
+/**
+ * Python like string formating.
+ *
+ * - The order doesn't matter,
+ * - You can omit the name/number if you want it to simply increment (the first {} matched will be transformed into {0}, etc),
+ * - You can name your parameters,
+ * - You can mix the three other points.
+ *
+ *
+ * As PHP doesn't really have a proper alternative to str.format in Python,
+ * I decided to implement my very simple own which as most of the basic functionnalitites of the Python's one.
+ * @link http://stackoverflow.com/questions/16632067/php-equivalent-of-pythons-str-format-method#answer-17372566
+ *
+ * @example
+ * # Hello foo and bar
+ * echo format('Hello {} and {}.', array('foo', 'bar'));
+ *
+ * @example
+ * # Hello Mom
+ * echo format('Hello {}', 'Mom');
+ *
+ * @example
+ * # Hello foo, bar and foo
+ * echo format('Hello {}, {1} and {0}', array('foo', 'bar'));
+ *
+ * @example
+ * # I'm not a fool nor a bar
+ * echo format('I\'m not a {foo} nor a {}', array('foo' => 'fool', 'bar'));
+ *
+ */
+function format($msg, $vars)
+{
+    $vars = (array)$vars;
+
+    $msg = preg_replace_callback('#\{\}#', function($r){
+        static $i = 0;
+        return '{'.($i++).'}';
+    }, $msg);
+
+    return str_replace(
+        array_map(function($k) {
+            return '{'.$k.'}';
+        }, array_keys($vars)),
+
+        array_values($vars),
+
+        $msg
+    );
+}
+
+/**
+ * @param \YandexMoney\Response\RequestPaymentResponse|string $resp
+ *
+ * @return string
+ */
+function makeErrorCode($resp)
+{
+    $error = (is_string($resp) ? $resp : $resp->getError());
+    $error = '%MESSAGE_' . strtoupper(preg_replace('/\s+/','_',$error)) . '%';
+    return $error;
+}
+
 
