@@ -1,16 +1,11 @@
 <?php
 /**
- * Обёртка над mysqli (Mq) и тупая ORM (AlxMq).
+ * mysqli wrapper (named Mq by me) and stupid ORM (named AlxMq).
  *
- * ** Goal: ИМПОРТИРОВАНО ИЗ SP 21-го МАРТА 2013-го **
- * ** Sp: ИМПОРТИРОВАНО ИЗ Goal 23-го августа 2013-го **
- * ** COMMON: ИМПОРТИРОВАНО ИЗ SP 26-го МАЯ 2014-го **
+ * ** «Goal»: IMPORTED    AT 2013, March,  21 **
+ * ** «Sp»: IMPORTED      AT 2013, August, 23 **
+ * ** «COMMON»: IMPORTED  AT 2014, May,    26 **
  *
- * Created with PhpStorm.
- * @author Inventorem
- * @time   22.12.12 / 14:00
- *
- * It uses mysqli driver
  */
 
 require_once 'common.php';
@@ -24,13 +19,13 @@ class Mq_Mode
     const SMART_DATA          = 4;
     const RAW_DATA            = 3;
     const ITERATIVE_RESULT    = 2;
-    const PREPARED_STMT = 1;
+    const PREPARED_STMT       = 1;
     const REQUEST             = 0;
 }
 
 
 /**
- * @version 7.0.3
+ * @version 8.0.0
  * 5.2 Note: insert notation changed!
  * 5.3 Note: update behaviour changed // params order is true now.
  * 5.4 Note q, qq, r are removed
