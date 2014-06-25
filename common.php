@@ -1,6 +1,6 @@
 <?php
 /**
- * @file Invntrm-Common-PHP / common.php
+ * @file backend / common.php
  * Created: 23.05.14 / 21:25
  */
 
