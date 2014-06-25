@@ -1,0 +1,13 @@
+{
+    "name": "a-x-/backend",
+    "description": "Interproject backend resources",
+    "license": "AGPL3",
+    "authors": [
+        {
+            "name": "Invntrm",
+            "email": "Invntrm@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {}
+}
