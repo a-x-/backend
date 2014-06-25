@@ -576,7 +576,7 @@ function mailSend($projectName, $projectMails, $theme, $data, $isUserCopy)
         . ($isUserCopy && !empty($data['userMail']) ? ',' . $data['userMail'] : '');
     //
     // Message subject
-    $uniqueId = uniqid('#', true);
+    $uniqueId = uniqid('#');
     $subject  = "$projectName/ $theme $uniqueId";
     //
     // MIME message type
