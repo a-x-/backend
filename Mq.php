@@ -540,7 +540,7 @@ class AlxMq extends Mq
                     $orderOptionStr = 'ORDER BY ';
                     $orderOptionStr .= preg_replace(['/:\.\s*([^\s,]+)/', '/\.:\s*([^\s,]+)/'],['$1 DESC ', '$1 ASC '],$part[4]);
                 }
-                $out .= "SELECT $part[3] FROM $part1 $part2 $part[7] $orderOptionStr" . $limit;
+                $out .= "SELECT $part[3] FROM $part1 $part2 $part[5] $orderOptionStr" . $limit;
             }
             //
             // request
