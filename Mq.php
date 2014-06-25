@@ -558,18 +558,9 @@ class AlxMq extends Mq
             if (strpos($part[3], '=') === false) {
                 if (preg_match('!(?:^|\s+)id\s*=!', $part[1])) // Необходима одна запись
                     $limit = ' LIMIT 1';
-#todo <<<<<<< HEAD
-#                if (isset($part[5]) && $part[5] != '') // Обнаружено правило сортировки
-#                    $orderOptionStr = 'ORDER BY ' . $part[6] . ' ' . ($part[5] == ':.' ? ' DESC ' : ' ASC ');
-#                $out .= "SELECT $part[3] FROM $part1 $part2 $part[7] $orderOptionStr" . $limit;
-#=======
-                if (!empty($part[4]) && preg_match('/:/',$part[4])) // Обнаружено правило сортировки
-                {
-                    $orderOptionStr = 'ORDER BY ';
-                    $orderOptionStr .= preg_replace(['/:\.\s*([^\s,]+)/', '/\.:\s*([^\s,]+)/'],['$1 DESC ', '$1 ASC '],$part[4]);
-                }
-                $out .= "SELECT $part[3] FROM $part1 $part2 $part[5] $orderOptionStr" . $limit;
-#todo >>>>>>> Fix mq bug
+                if (isset($part[5]) && $part[5] != '') // Обнаружено правило сортировки
+                    $orderOptionStr = 'ORDER BY ' . $part[6] . ' ' . ($part[5] == ':.' ? ' DESC ' : ' ASC ');
+                $out .= "SELECT $part[3] FROM $part1 $part2 $part[7] $orderOptionStr" . $limit;
             }
             //
             // request
