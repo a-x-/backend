@@ -404,13 +404,7 @@ class AlxMq extends Mq
      *
      * @example user[name='alx']?pic                    SELECT
      * @example user['alx']?pic                         SELECT (same)
-#<<<<<<< HEAD
-#     * @example user[n=1&&L=2]?pic|:.orderCol           SELECT with ORDER BY orderCol DESC
-#=======
-     * @example user[n=1&&L=2]?pic | :.orderCol         SELECT with ORDER BY orderCol DESC
-     * @example user[n=1&&L=2]?pic | :.orderCol, .:oc2  SELECT with ORDER BY orderCol DESC, oc2 ASC
-     * @example user[n=1&&L=2]?pic | :.oc | gc          SELECT with ORDER BY oc DESC GROUP BY gc
-#>>>>>>> Reindent...
+     * @example user[n=1&&L=2]?pic|:.orderCol           SELECT with ORDER BY orderCol DESC
      * @example user[id=12347]?pic=new.jpg              UPDATE
      * @example user[12347]?pic=new.jpg                 UPDATE (same)
      * @example user[pic='new.jpg',name='dec A. orz']>  INSERT
