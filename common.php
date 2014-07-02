@@ -297,6 +297,8 @@ function getDirList($path, $excludeMimes = array(), $isDebug = false)
 }
 
 /**
+ * @param      $text
+ * @param bool $isTrace
  * @param $text
  */
 function _d($text, $isTrace = false)
