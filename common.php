@@ -1,6 +1,6 @@
 <?php
 /**
- * @file Invntrm-Common-PHP / common.php
+ * @file backend / common.php
  * Created: 23.05.14 / 21:25
  */
 
@@ -789,3 +789,28 @@ function makeErrorCode($resp)
 }
 
 
+class Exception extends \Exception {
+    protected $codeExtended;
+
+    /**
+     * @return string
+     */
+    public function getCodeExtended()
+    {
+        return $this->codeExtended;
+    }
+
+    /**
+     * @param string     $codeExtended
+     * @param int        $description
+     * @param \Exception $previous    [optional]
+     * @param \Exception $numericCode [optional]
+     */
+    public function __construct($codeExtended, $description, $previous, $numericCode)
+    {
+        if(!$description) $description = 'нет описания';
+        parent::__construct($description, $numericCode, $previous);
+        $this->codeExtended = makeErrorCode($codeExtended);
+    }
+
+}

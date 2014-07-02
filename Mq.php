@@ -193,7 +193,7 @@ class Mq
             'placeholders' => preg_match_all('!\?!', $this->req)
         ];
         if ($count['sigma'] != $count['params'] || $count['placeholders'] != $count['params'])
-            throw new \MqException('Lengths of sigma, params and placeholder are not equal '
+            throw new \MqException('Lengths of sigma, params and placeholder are not equal. Counts: '
                 . \Invntrm\varDumpRet($count), $args, $this->getCheckDriverError());
         $isArg = !!$count['params'];
         //
