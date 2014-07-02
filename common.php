@@ -299,9 +299,15 @@ function getDirList($path, $excludeMimes = array(), $isDebug = false)
 /**
  * @param $text
  */
-function _d($text)
+function _d($text, $isTrace = false)
 {
-    file_put_contents(ROOT . '_logs/check.log', "\n" . date(DATE_RSS) . '>' . \Invntrm\varDumpRet($text), FILE_APPEND);
+    file_put_contents(
+        ROOT . '_logs/check.log',
+        "\n"  . date(DATE_RSS)  . '>'
+            . \Invntrm\varDumpRet($text)
+            . ($isTrace ? "\nTrace:\n".\Invntrm\varDumpRet(debug_backtrace()) : ''),
+        FILE_APPEND
+    );
 }
 
 /**

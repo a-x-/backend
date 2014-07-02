@@ -8,8 +8,8 @@
  *
  */
 
-require_once 'common.php';
-require_once "$_SERVER[DOCUMENT_ROOT]/_data/consts.php";
+require_once __DIR__ . '/../../../_ass/common.php';
+require_once __DIR__ . "/../../../_data/consts.php";
 
 /**
  * Class Mq_Mode is  class Mq internal ENUM
