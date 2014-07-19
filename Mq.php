@@ -210,8 +210,8 @@ class Mq
         if (!$isExecuteSuccess)
             throw new MqException('Execute fault', $args, $this->getCheckDriverError());
         $result = $stmt->get_result();
-        if (!$result)
-            throw new MqException('Get iterative fault', $args, $this->getCheckDriverError());
+        // fix: result may be not present. it's normal
+        // if (!$result) throw new MqException('Get iterative fault', $args, $this->getCheckDriverError());
         $this->logDebug(__METHOD__, ['stmt' => $stmt, 'result' => $result], $isLog);
         if (!$result->num_rows)
             $this->logDebug(__METHOD__, '[WARN] Result is empty!', $isLog);
@@ -236,11 +236,13 @@ class Mq
      */
     public function fromIterativeToRaw($iterative, $extra = [], $isLog = false)
     {
-        if (!$iterative) throw new \MqInvalidArgumentException('iterative');
-        $result = (preg_match('!^\s*(INSERT|UPDATE)!i', $this->req)) ?
-            $this->driver->insert_id // Get affected row id
-            :
-            $iterative->fetch_all(MYSQLI_ASSOC); // Or get result
+        if(preg_match('!^\s*(INSERT|UPDATE)!i', $this->req)){
+            $result = $this->driver->insert_id; // Get affected row id
+        }
+        else {
+            if (!$iterative) throw new \MqInvalidArgumentException('no iterative error');
+            $result = $iterative->fetch_all(MYSQLI_ASSOC); // Or get result
+        }
         $this->logDebug(__METHOD__, ['iterator' => $iterative, 'result' => $result], $isLog);
         return $result;
     }
@@ -271,7 +273,7 @@ class Mq
     }
 
     //
-    //
+    // Other methods
     //
 
     /**

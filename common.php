@@ -808,7 +808,7 @@ class Exception extends \Exception {
      * @param \Exception $previous    [optional]
      * @param \Exception $numericCode [optional]
      */
-    public function __construct($codeExtended, $description, $previous, $numericCode)
+    public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null)
     {
         if(!$description) $description = 'нет описания';
         parent::__construct($description, $numericCode, $previous);
