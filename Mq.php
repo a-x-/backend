@@ -286,7 +286,7 @@ class Mq
      */
     protected function logDebug($method, $message, $isLog, $stage = '')
     {
-        if (!$this->isLog && $isLog) return;
+        if (!$this->isLog && !$isLog) return;
         if (!is_string($message)) $message = \Invntrm\varDumpRet($message);
         if ($stage) $stage = "$stage:";
         \Invntrm\_d(__CLASS__ . ':' . $method . ':' . $stage . $message);
