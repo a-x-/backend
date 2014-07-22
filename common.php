@@ -36,6 +36,13 @@ function true_session_start(){
     if(session_status() == PHP_SESSION_NONE) session_start();
 }
 
+function true_array_map($callback, $array) {
+    foreach($array as $key => $val) {
+        $callback($val, $key);
+    }
+}
+
+
 ///**
 // * @param $className
 // */
@@ -789,7 +796,6 @@ function makeErrorCode($resp)
     $error = '%MESSAGE_' . strtoupper(preg_replace('/\s+/','_',$error)) . '%';
     return $error;
 }
-
 
 class Exception extends \Exception {
     protected $codeExtended;
