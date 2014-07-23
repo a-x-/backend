@@ -36,12 +36,26 @@ function true_session_start(){
     if(session_status() == PHP_SESSION_NONE) session_start();
 }
 
+/**
+ * Send to callback value and key, instead of array_map, which sends only value
+ */
 function true_array_map($callback, $array) {
+    $resultArray = [];
     foreach($array as $key => $val) {
-        $callback($val, $key);
+        $resultArray[$key] = $callback($val, $key);
     }
+    // \Invntrm\_d([$array, $resultArray]);
+    return $resultArray;
 }
 
+function true_sort($valueOrigin)
+{
+    $value = $valueOrigin;
+    if (empty($value) ) return [];
+    if (!is_array($value)) throw \Exception('true_sort accept arrays only');
+    sort($value);
+    return $value;
+}
 
 ///**
 // * @param $className
@@ -310,6 +324,10 @@ function getDirList($path, $excludeMimes = array(), $isDebug = false)
  */
 function _d($text, $isTrace = false)
 {
+    if(!is_bool($isTrace)) {
+        $text = [$text, $isTrace];
+        $isTrace = false;
+    }
     file_put_contents(
         ROOT . '_logs/check.log',
         "\n"  . date(DATE_RSS)  . '>'
@@ -446,9 +464,10 @@ function xml2array($xmlObject, $out = array())
 
 function varDumpRet($var)
 {
-    ob_start();
-    var_dump($var);
-    return ob_get_clean();
+    return print_r($var, true);
+    // ob_start();
+    // var_dump($var);
+    // return ob_get_clean();
 }
 
 
@@ -583,7 +602,7 @@ function hruDump($array, $level = 0)
  */
 function mailSend($projectName, $projectMails, $theme, $data, $isUserCopy)
 {
-    if (empty($data['userName'])) $data['userName'] = 'Посетитеть';
+    if (empty($data['userName'])) $data['userName'] = '';
     _d(['mailSend', $projectName, $projectMails, $theme, $data, $isUserCopy]);
     //
     // Recipients
