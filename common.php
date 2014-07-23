@@ -603,7 +603,7 @@ function hruDump($array, $level = 0)
 function mailSend($projectName, $projectMails, $theme, $data, $isUserCopy)
 {
     if (empty($data['userName'])) $data['userName'] = '';
-    _d(['mailSend', $projectName, $projectMails, $theme, $data, $isUserCopy]);
+    // _d(['mailSend', $projectName, $projectMails, $theme, $data, $isUserCopy]);
     //
     // Recipients
     $ownEmail = (is_array($projectMails['destination']) ? join(',', $projectMails['destination']) : $projectMails['destination'])
@@ -627,7 +627,7 @@ function mailSend($projectName, $projectMails, $theme, $data, $isUserCopy)
     // Send mail
     ini_set("SMTP", "localhost");
     ini_set("smtp_port", "25");
-    _d(['before mail()', $ownEmail, $subject, $msg, $headers]);
+    // _d(['before mail()', $ownEmail, $subject, $msg, $headers]);
     return (mail($ownEmail, $subject, $msg, $headers));
 }
 

@@ -213,7 +213,7 @@ class Mq
         // fix: result may be not present. it's normal
         // if (!$result) throw new MqException('Get iterative fault', $args, $this->getCheckDriverError());
         $this->logDebug(__METHOD__, ['stmt' => $stmt, 'result' => $result], $isLog);
-        if (!$result->num_rows)
+        if (!$result || !$result->num_rows)
             $this->logDebug(__METHOD__, '[WARN] Result is empty!', $isLog);
         return $result;
     }
