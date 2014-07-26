@@ -585,50 +585,53 @@ function hruDump($array, $level = 0)
         $out .= "<p style='margin-left: 1em'><b>$i:</b> $el\n";
     }
     $out = specializeMask2($tpl, 'out', $out);
-    //    _d(['hruDump', $out]);
     return $out;
 }
 
 /**
- * @deprecated have to use PHPMailer based solutions
- *
- * @param $projectName
- * @param $projectMails array - Should contains [mailer, destination]
- * @param $theme
+ * Send project specific mail with message dump
  * @param $data         array - Should contains [userName,userMail]
- * @param $isUserCopy   bool - Is user e-mail copy require (send mail for user, also?)
  *
+ * @param $to
+ * @param $consts
+ * @param $theme
  * @return bool
  */
-function mailSend($projectName, $projectMails, $theme, $data, $isUserCopy)
+function mailDump($data, $to, $consts, $theme)
 {
-    if (empty($data['userName'])) $data['userName'] = '';
-    // _d(['mailSend', $projectName, $projectMails, $theme, $data, $isUserCopy]);
+    if (!$to) {
+        $to = $consts['PROJECT_NAME'];
+    }
+    $message = hruDump($data);
+    mailProject($message, $to, '', $consts,$theme);
+}
+
+/**
+ * Send project specific mail
+ * @param $message
+ * @param $to
+ * @param $fromName
+ * @param $theme
+ * @return bool
+ */
+function mailProject($message, $to, $fromName, $consts, $theme) {
+    $fromName = $fromName ? "$fromName (via site)" : $consts['PROJECT_NAME'];
+    $from = "$fromName <{$consts['MAILER_EMAIL']}>";
     //
-    // Recipients
-    $ownEmail = (is_array($projectMails['destination']) ? join(',', $projectMails['destination']) : $projectMails['destination'])
-        . ($isUserCopy && !empty($data['userMail']) ? ',' . $data['userMail'] : '');
+    // MIME message type
+    $headers 
+        = "MIME-Version: 1.0\r\n"
+        . "Content-type: text/html; charset=utf-8\r\n" 
+        . "From: $from\r\n";
     //
     // Message subject
     $uniqueId = uniqid('#');
-    $subject  = "$projectName/ $theme $uniqueId";
-    //
-    // MIME message type
-    $headers = "MIME-Version: 1.0\r\n" .
-        "Content-type: text/html; charset=utf-8\r\n";
-    //
-    // Headers
-    $headers .= "From: $data[userName] (via site) <$projectMails[mailer]>\r\n";
-    //
-    // Message text
-    $hruData = hruDump($data);
-    $msg     = "<p>$theme</p><p>$hruData</p>";
+    $subject  = "{$consts['PROJECT_NAME']}/ $theme $uniqueId";
     //
     // Send mail
     ini_set("SMTP", "localhost");
     ini_set("smtp_port", "25");
-    // _d(['before mail()', $ownEmail, $subject, $msg, $headers]);
-    return (mail($ownEmail, $subject, $msg, $headers));
+    return (mail($to, $subject, $message, $headers));
 }
 
 
