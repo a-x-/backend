@@ -461,15 +461,28 @@ function xml2array($xmlObject, $out = array())
     return $out;
 }
 
-
-function varDumpRet($var)
+/**
+ * @example varDumpRet(['1'=>1,'2'=>2], true) --> [ "1" => 1     "2" => 2 ]
+ * @example varDumpRet(['1'=>1,'2'=>2]) -->
+ *          Array
+ *          (
+ *             [1] => 1
+ *             [2] => 2
+ *          )
+ * @param $var
+ * @param $isPretty
+ * @return mixed
+ */
+function varDumpRet($var, $isPretty = false)
 {
-    return print_r($var, true);
-    // ob_start();
-    // var_dump($var);
-    // return ob_get_clean();
+    $out = print_r($var, true);
+    if ($isPretty) {
+        $out = preg_replace('!\n!',' ', $out);
+        $out = preg_replace('!\[(.*?)\]!','"$1"', $out);
+        $out = preg_replace('!Array\s*\((.*)\)!i','[$1]',$out);
+    }
+    return $out;
 }
-
 
 function printRRet($var)
 {
@@ -480,6 +493,8 @@ function printRRet($var)
 
 /**
  * Filter array by white or black list
+ * @example echo (varDumpRet(array_filter_bwLists(['1'=>1,'2'=>2,'3'=>3], ['1'=>3,'2'=>4] ,[]), true) . '==' . '["1"=>1,"2"=>2]');
+ * @example echo (varDumpRet(array_filter_bwLists(['1'=>1,'2'=>2,'3'=>3], ['1'=>3,'2'=>4] ,['1'=>5]), true) . '==' . '["2"=>2]');
  *
  * @param       $array
  * @param array $whiteList
