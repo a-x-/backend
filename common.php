@@ -531,7 +531,7 @@ function array_filter_bwListsByKeys($array, $whiteList = [], $blackList = [])
         $type2 = $type . 'KeyVal';
         $$type2 = [];
         if(!$$type)$$type = [];
-        foreach($$type as $item) { $$type2 [$item] = null; }
+        foreach($$type as $item) { ${$type2} [$item] = null; }
     }
     return array_filter_bwLists($array, $whiteListKeyVal, $blackListKeyVal);
 }
