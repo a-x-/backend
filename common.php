@@ -507,12 +507,12 @@ function array_filter_bwLists($array, $whiteList = [], $blackList = [])
     if ($whiteList && true_count($whiteList)) {
         //
         // White list rule
-        return array_intersect_key($array, $whiteList);
-    } else {
-        //
-        // Black list rule
-        return array_subtraction_key($array, $blackList);
+        $array = array_intersect_key($array, $whiteList);
     }
+    //
+    // Black list rule
+    if ($blackList) $array = array_subtraction_key($array, $blackList);
+    return $array;
 }
 
 /**
@@ -525,11 +525,15 @@ function array_filter_bwLists($array, $whiteList = [], $blackList = [])
  *
  * @return array
  */
-function array_filter_bwListsByKeys($array,$whiteList = [], $blackList = [])
+function array_filter_bwListsByKeys($array, $whiteList = [], $blackList = [])
 {
-    if($whiteList)$whiteList = array_walk($whiteList, function (&$el,&$key) use ($array){$el = ''; $key = $array[$key];});
-    if($blackList)$blackList = array_walk($blackList, function (&$el,&$key) use ($array){$el = ''; $key = $array[$key];});
-    return array_filter_bwLists($array,$whiteList,$blackList);
+    foreach(['whiteList','blackList'] as $type) {
+        $type2 = $type . 'KeyVal';
+        $$type2 = [];
+        if(!$$type)$$type = [];
+        foreach($$type as $item) { $$type2 [$item] = null; }
+    }
+    return array_filter_bwLists($array, $whiteListKeyVal, $blackListKeyVal);
 }
 
 
