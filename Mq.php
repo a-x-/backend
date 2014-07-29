@@ -266,7 +266,6 @@ class Mq
      */
     public function fromRawToSmart($raw, $extra = [], $isLog = false)
     {
-        if (!$raw) throw new \MqInvalidArgumentException('raw');
         $smart = \Invntrm\recursiveDegenerateArrOptimize($raw);
         $this->logDebug(__METHOD__, ['raw' => $raw, 'smart' => $smart], $isLog);
         return $smart;
