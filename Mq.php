@@ -602,6 +602,23 @@ class AlxMq extends Mq
      */
     public function req($req, $sigma = '', $params = false, $mode = Mq_Mode::SMART_DATA, $isLog = false)
     {
+        //
+        // Short form req('class[id=*]?*',$class_id)
+        if (is_array($sigma)) {
+            $params = $sigma;
+            $sigma = '';
+            foreach($params as $param) {
+                $type = gettype($param);
+                if (preg_match('!array|object|resource!i', $type)) {
+                    throw new MqInvalidArgumentException($param, 'Param not scalar. ' . \Invntrm\varDumpRet([$req,$params]));
+                }
+                $sigma .= preg_replace(
+                    ['!^bool.*$!i','!^int.*$!i','!^double$!i','!^str.*$!i'],
+                    ['i','i','i','s'],
+                    $type
+                );
+            }
+        }
         $req = $this->parse($req, $sigma, $params, $isLog);
         return $this->performChain($req, Mq_Mode::REQUEST, $mode, ['sigma' => $sigma, 'params' => $params], $isLog);
     }
