@@ -322,14 +322,14 @@ function getDirList($path, $excludeMimes = array(), $isDebug = false)
  * @param bool $isTrace
  * @param $text
  */
-function _d($text, $isTrace = false)
+function _d($text, $isTrace = false, $logName = 'check')
 {
     if(!is_bool($isTrace)) {
         $text = [$text, $isTrace];
         $isTrace = false;
     }
     file_put_contents(
-        ROOT . '_logs/check.log',
+        ROOT . "_logs/{$logName}.log",
         "\n"  . date(DATE_RSS)  . '>'
             . \Invntrm\varDumpRet($text)
             . ($isTrace ? "\nTrace:\n".\Invntrm\varDumpRet(debug_backtrace()) : ''),
@@ -618,9 +618,6 @@ function hruDump($array, $level = 0)
  */
 function mailDump($data, $to, $consts, $theme)
 {
-    if (!$to) {
-        $to = $consts['PROJECT_NAME'];
-    }
     $message = hruDump($data);
     mailProject($message, $to, '', $consts,$theme);
 }
@@ -630,6 +627,7 @@ function mailDump($data, $to, $consts, $theme)
  * @param $message
  * @param $to
  * @param $fromName
+ * @param $consts
  * @param $theme
  * @return bool
  */
@@ -639,14 +637,14 @@ function mailProject($message, $to, $fromName, $consts, $theme) {
     $from = "$fromName <{$consts['MAILER_EMAIL']}>";
     //
     // MIME message type
-    $headers 
+    $headers
         = "MIME-Version: 1.0\r\n"
-        . "Content-type: text/html; charset=utf-8\r\n" 
+        . "Content-type: text/html; charset=utf-8\r\n"
         . "From: $from\r\n";
     //
     // Message subject
     $uniqueId = uniqid('#');
-    $subject  = "{$consts['PROJECT_NAME']}/ $theme $uniqueId";
+    $subject  = "$theme $uniqueId";
     //
     // Send mail
     ini_set("SMTP", "localhost");
