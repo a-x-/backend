@@ -27,6 +27,21 @@ $C = function ($a) { return $a; };
 //
 //set_error_handler("exception_error_handler");
 
+function unixTimeToSqlDate($time)
+{
+    date_default_timezone_set('Europe/Moscow');
+    return (date('Y-m-d', $time));
+}
+
+function sqlDateToUnixTime($date)
+{
+    date_default_timezone_set('Europe/Moscow');
+    return strtotime($date);
+}
+
+function daysToSeconds ($days) { return $days * 24 * 3600; }
+function secondsToDays ($days) { return $days / (24 * 3600); }
+
 function true_get ($array,$key)
 {
     return isset($array[$key]) ? $array[$key] : '';
