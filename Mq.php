@@ -16,11 +16,11 @@ require_once __DIR__ . "/../../../_data/consts.php";
  */
 class Mq_Mode
 {
-    const SMART_DATA          = 4;
-    const RAW_DATA            = 3;
-    const ITERATIVE_RESULT    = 2;
-    const PREPARED_STMT       = 1;
-    const REQUEST             = 0;
+    const SMART_DATA       = 4;
+    const RAW_DATA         = 3;
+    const ITERATIVE_RESULT = 2;
+    const PREPARED_STMT    = 1;
+    const REQUEST          = 0;
 }
 
 
@@ -56,8 +56,8 @@ class Mq
      */
     public function __construct($schemeName = '', $isLog = false)
     {
-        if(!is_string($schemeName) && !is_array($schemeName)) {
-            $isLog = $schemeName;
+        if (!is_string($schemeName) && !is_array($schemeName)) {
+            $isLog      = $schemeName;
             $schemeName = '';
         }
         if (is_array($schemeName)) {
@@ -87,33 +87,33 @@ class Mq
 
     public function startTransaction()
     {
-        if($this->driver->autocommit(false))
-            throw new MqException('autocommit=false was not set',[],$this->getCheckDriverError());
+        if ($this->driver->autocommit(false))
+            throw new MqException('autocommit=false was not set', [], $this->getCheckDriverError());
     }
 
     public function commitTransaction()
     {
-        if($this->driver->commit())
-            throw new MqException('commit was not success',[],$this->getCheckDriverError());
-        if($this->driver->autocommit(true))
-            throw new MqException('autocommit=true was not set',[],$this->getCheckDriverError());
+        if ($this->driver->commit())
+            throw new MqException('commit was not success', [], $this->getCheckDriverError());
+        if ($this->driver->autocommit(true))
+            throw new MqException('autocommit=true was not set', [], $this->getCheckDriverError());
     }
 
     public function rollbackTransaction()
     {
-        if($this->driver->rollback())
-            throw new MqException('rollback was not success',[],$this->getCheckDriverError());
-        if($this->driver->autocommit(false))
-            throw new MqException('rollback: autocommit=false was not set',[],$this->getCheckDriverError());
+        if ($this->driver->rollback())
+            throw new MqException('rollback was not success', [], $this->getCheckDriverError());
+        if ($this->driver->autocommit(false))
+            throw new MqException('rollback: autocommit=false was not set', [], $this->getCheckDriverError());
     }
 
     /**
-     * @param mixed   $input
-     * @param int     $from
+     * @param mixed $input
+     * @param int   $from
      *
-     * @param int     $to
-     * @param array   $extra
-     * @param bool    $isLog
+     * @param int   $to
+     * @param array $extra
+     * @param bool  $isLog
      *
      * @return bool|mysqli_stmt|mysqli_result|array|string|int
      */
@@ -122,7 +122,7 @@ class Mq
         $result = $input;
         for ($i = $from; $i < $to; ++$i) {
             $chainMethodName = $this->chainMethod[$i];
-            $result = $this->$chainMethodName($result, $extra, $isLog);
+            $result          = $this->$chainMethodName($result, $extra, $isLog);
         }
         return $result;
     }
@@ -185,7 +185,7 @@ class Mq
         $sigma  = $extra['sigma'];
         $params = $extra['params'];
         if (!$stmt) throw new \MqInvalidArgumentException('Stmt');
-        if (!is_array($params)) $params = [$params];
+        if (!is_array($params) && $params !== null) $params = [$params];
         $args  = ['req' => $this->req, 'sigma' => $sigma, 'params' => $params];
         $count = [
             'params'       => \Invntrm\true_count($params),
@@ -200,9 +200,9 @@ class Mq
         // Bind params
         if ($isArg) {
             array_unshift($params, $sigma); // Расширяем начальным элементом, содержащим сигнатуру
-            $tmp = array(); // Преобразуем строки в ссылки (требуется функции call_user_func_array)
+            $tmp = []; // Преобразуем строки в ссылки (требуется функции call_user_func_array)
             foreach ($params as $key => $value) $tmp[$key] = & $params[$key]; // ...
-            call_user_func_array(array($stmt, 'bind_param'), $tmp); // Запускаем $stmt->bind_param с праметрами из массива
+            call_user_func_array([$stmt, 'bind_param'], $tmp); // Запускаем $stmt->bind_param с праметрами из массива
         }
         //
         // Execute and get result
@@ -236,10 +236,9 @@ class Mq
      */
     public function fromIterativeToRaw($iterative, $extra = [], $isLog = false)
     {
-        if(preg_match('!^\s*(INSERT|UPDATE)!i', $this->req)){
+        if (preg_match('!^\s*(INSERT|UPDATE)!i', $this->req)) {
             $result = $this->driver->insert_id; // Get affected row id
-        }
-        else {
+        } else {
             if (!$iterative) throw new \MqInvalidArgumentException('no iterative error');
             $result = $iterative->fetch_all(MYSQLI_ASSOC); // Or get result
         }
@@ -429,7 +428,7 @@ class AlxMq extends Mq
      */
     protected function parse($reqLine, &$sigma, &$params, $isLog = false)
     {
-        $reqLine = preg_replace(['/order/i','/group/i'],'`$0`',$reqLine);
+        $reqLine = preg_replace(['/order/i', '/group/i'], '`$0`', $reqLine);
         // Declaration list. *NOT TO DELETE*
         //
         // $part = array();
@@ -540,7 +539,7 @@ class AlxMq extends Mq
                     $part3_parts
                 );
                 $part[3]     = join(",   ", $part3_parts);
-//                if (isset($part[5]) && $part[5] != '') $part[6] = $part[1] . '.' . ($part[6] == '' ? 'id' : $part[6]);
+                //                if (isset($part[5]) && $part[5] != '') $part[6] = $part[1] . '.' . ($part[6] == '' ? 'id' : $part[6]);
             } // if ($part2ToJoinTables_cnt) мультитабличная предобработка
 
             $part[3] = preg_replace('!(?:^|[^a-z0-9_])COUNT\s*([^\(]|$)!i', "COUNT($part[1].id)$1", $part[3]); //  Замена COUNT на COUNT(PrimaryTable.id)
@@ -557,10 +556,10 @@ class AlxMq extends Mq
             if (strpos($part[3], '=') === false) {
                 if (preg_match('!(?:^|\s+)id\s*=!', $part[1])) // Необходима одна запись
                     $limit = ' LIMIT 1';
-                if (!empty($part[4]) && preg_match('/:/',$part[4])) // Обнаружено правило сортировки
+                if (!empty($part[4]) && preg_match('/:/', $part[4])) // Обнаружено правило сортировки
                 {
                     $orderOptionStr = 'ORDER BY ';
-                    $orderOptionStr .= preg_replace(['/:\.\s*([^\s,]+)/', '/\.:\s*([^\s,]+)/'],['$1 DESC ', '$1 ASC '],$part[4]);
+                    $orderOptionStr .= preg_replace(['/:\.\s*([^\s,]+)/', '/\.:\s*([^\s,]+)/'], ['$1 DESC ', '$1 ASC '], $part[4]);
                 }
                 $out .= "SELECT $part[3] FROM $part1 $part2 $part[5] $orderOptionStr" . $limit;
             }
@@ -598,23 +597,24 @@ class AlxMq extends Mq
      * @param int|\Mq_Mode $mode
      * @param bool         $isLog
      *
+     * @throws MqInvalidArgumentException
      * @return string|array|bool|mysqli_result|mysqli_stmt mysqli_result
      */
-    public function req($req, $sigma = '', $params = false, $mode = Mq_Mode::SMART_DATA, $isLog = false)
+    public function req($req, $sigma = '', $params = null, $mode = Mq_Mode::SMART_DATA, $isLog = false)
     {
         //
         // Short form req('class[id=*]?*',$class_id)
         if (is_array($sigma)) {
             $params = $sigma;
-            $sigma = '';
-            foreach($params as $param) {
+            $sigma  = '';
+            foreach ($params as $param) {
                 $type = gettype($param);
                 if (preg_match('!array|object|resource!i', $type)) {
-                    throw new MqInvalidArgumentException($param, 'Param not scalar. ' . \Invntrm\varDumpRet([$req,$params]));
+                    throw new MqInvalidArgumentException($param, 'Param not scalar. ' . \Invntrm\varDumpRet([$req, $params]));
                 }
                 $sigma .= preg_replace(
-                    ['!^bool.*$!i','!^int.*$!i','!^double$!i','!^str.*$!i'],
-                    ['i','i','i','s'],
+                    ['!^bool.*$!i', '!^int.*$!i', '!^double$!i', '!^str.*$!i'],
+                    ['i', 'i', 'i', 's'],
                     $type
                 );
             }
@@ -646,7 +646,7 @@ class MqInvalidArgumentException extends InvalidArgumentException
      * @param string|array $params
      * @param string       $message
      */
-    public function __construct($params,$message=' param(s) not given')
+    public function __construct($params, $message = ' param(s) not given')
     {
         \Exception::__construct(\Invntrm\varDumpRet($params) . $message);
     }
