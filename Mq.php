@@ -25,7 +25,7 @@ class Mq_Mode
 
 
 /**
- * @version 8.0.0
+ * @version 8.1.0
  * 5.2 Note: insert notation changed!
  * 5.3 Note: update behaviour changed // params order is true now.
  * 5.4 Note q, qq, r are removed
@@ -34,6 +34,7 @@ class Mq_Mode
  * 6.0 Note req() method moved out to AlxMq child class
  * 7.0 Note replace chaotic `false` returns by throw Exceptions
  * 8.0 AlxMq syntax no-backward compatible changed
+ * 8.1 Change exceptions base! TODO CHECK using code catchers
  *
  */
 class Mq
