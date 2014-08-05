@@ -44,7 +44,12 @@ class Mq
     protected $schemeName = '';
     protected $chainMethod = ['fromReqToStmt', 'fromStmtToIterative', 'fromIterativeToRaw', 'fromRawToSmart'];
     protected $req = '';
+    protected $params = [];
 
+    public function getInitialRequest()
+    {
+        return $this->req;
+    }
 
     /**
      * Construct
@@ -64,7 +69,8 @@ class Mq
             $args       = $schemeName;
             $schemeName = \Invntrm\true_get($args, 'schemeName');
             $isLog      = \Invntrm\true_get($args, 'isLog');
-        } else {
+        }
+        else {
             $args = ['schemeName' => $schemeName, 'isLog' => $isLog];
         }
         $this->isLog      = $isLog;
@@ -146,7 +152,7 @@ class Mq
      */
     public function fromReqToStmt($req, $extra = [], $isLog = false)
     {
-        if (!$req) throw new \MqInvalidArgumentException('Req param not given');
+        if (!$req) throw new \MqInvalidArgumentException('Req param not given', $req, $this);
         $req         = $this->getPreprocessedReq($req);
         $this->req   = $req;
         $args        = ['req' => $req];
@@ -182,9 +188,10 @@ class Mq
     {
         //
         // Init
-        $sigma  = $extra['sigma'];
-        $params = $extra['params'];
-        if (!$stmt) throw new \MqInvalidArgumentException('Stmt');
+        $sigma        = $extra['sigma'];
+        $params       = $extra['params'];
+        $this->params = $params;
+        if (!$stmt) throw new \MqInvalidArgumentException('Stmt is not provided', $stmt, $this);
         if (!is_array($params) && $params !== null) $params = [$params];
         $args  = ['req' => $this->req, 'sigma' => $sigma, 'params' => $params];
         $count = [
@@ -209,12 +216,19 @@ class Mq
         $isExecuteSuccess = $stmt->execute();
         if (!$isExecuteSuccess)
             throw new MqException('Execute fault', $args, $this->getCheckDriverError());
-        $result = $stmt->get_result();
+        if (preg_match('!^\s*DELETE!i', $this->req)) {
+            $result = !!$stmt->affected_rows;
+            $isDeleteRequest = true;
+        }
+        else {
+            $result = $stmt->get_result();
+            $isDeleteRequest = false;
+        }
         // fix: result may be not present. it's normal
         // if (!$result) throw new MqException('Get iterative fault', $args, $this->getCheckDriverError());
         $this->logDebug(__METHOD__, ['stmt' => $stmt, 'result' => $result], $isLog);
         if (!$result || !$result->num_rows)
-            $this->logDebug(__METHOD__, '[WARN] Result is empty!', $isLog);
+            $this->logDebug(__METHOD__, $isDeleteRequest?'[WARN Nothing delete...]':'[WARN] Result is empty!', $isLog);
         return $result;
     }
 
@@ -238,8 +252,12 @@ class Mq
     {
         if (preg_match('!^\s*(INSERT|UPDATE)!i', $this->req)) {
             $result = $this->driver->insert_id; // Get affected row id
-        } else {
-            if (!$iterative) throw new \MqInvalidArgumentException('no iterative error');
+        }
+        elseif (preg_match('!^\s*DELETE!i', $this->req)) {
+            $result = $iterative; // is anything deleted
+        }
+        else {
+            if (!$iterative) throw new \MqInvalidArgumentException('Iterative not provided', $iterative, $this);
             $result = $iterative->fetch_all(MYSQLI_ASSOC); // Or get result
         }
         $this->logDebug(__METHOD__, ['iterator' => $iterative, 'result' => $result], $isLog);
@@ -265,7 +283,8 @@ class Mq
      */
     public function fromRawToSmart($raw, $extra = [], $isLog = false)
     {
-        $smart = \Invntrm\recursiveDegenerateArrOptimize($raw);
+        if (!$isLog) $isLog = $this->isLog;
+        $smart = \Invntrm\recursiveDegenerateArrOptimize($raw, $isLog);
         $this->logDebug(__METHOD__, ['raw' => $raw, 'smart' => $smart], $isLog);
         return $smart;
     }
@@ -319,10 +338,12 @@ class Mq
             $errNo             = $this->stmt->errno;
             $errNote           = $this->stmt->error;
             $additionErrorType = 'stmt';
-        } elseif ($this->driver->errno) {
+        }
+        elseif ($this->driver->errno) {
             $errNo   = $this->driver->errno;
             $errNote = $this->driver->error;
-        } elseif ($this->driver->connect_errno) {
+        }
+        elseif ($this->driver->connect_errno) {
             $errNo             = $this->driver->connect_errno;
             $errNote           = $this->driver->connect_error;
             $additionErrorType = 'connect';
@@ -339,7 +360,7 @@ class Mq
      */
     function get_result($stmt)
     {
-        $tmp            = array();
+        $tmp            = [];
         $special_result = $stmt->result_metadata();
         $field_count    = $special_result->field_count;
         for ($i = 0; $i < $field_count; ++$i) {
@@ -371,6 +392,11 @@ class Mq
     public function esc($str)
     {
         return $this->driver->real_escape_string($str);
+    }
+
+    public function getInitialArgs()
+    {
+        return $this->params;
     }
 }
 
@@ -460,8 +486,9 @@ class AlxMq extends Mq
         foreach ($reqArr as $req) { // Проход по отдельным alx-запросам
             if (preg_match('!:d$!', $req)) { //                                                                              * Требуется запрос удаления
                 preg_match('!^([a-z_]+)\[\s*(.*)\s*\]:d$!i', $req, $part); //                                           Разбить alx-запрос на простые составляющие (для запроса удаления)
-
-                return "DELETE FROM $part[1] WHERE $part[2];";
+                $table   = $part[1];
+                $part[2] = $part2Preprocessor($part[2]);
+                return "DELETE FROM $table WHERE $part[2];";
             }
             if (preg_match('!^[a-z_]+\[.*\]>$!i', $req)) { //                                                                * Требуется запрос вставки
                 preg_match('!^([a-z_]+)\[(.*)\]>\s*$!i', $req, $part); //                                           Разбить alx-запрос на простые составляющие (для запроса вставки)
@@ -505,7 +532,7 @@ class AlxMq extends Mq
                     if ($part[1] != $table) $part1 .= ' JOIN ' . $table;
                 }
                 $part1 .= ' ON ';
-                $part1_arr          = array();
+                $part1_arr          = [];
                 $k                  = 0;
                 $information_schema = new AlxMq("information_schema");
                 $infoStmt           = $information_schema->req("COLUMNS[TABLE_SCHEMA=[SCHEME_NAME_DEFAULT] && TABLE_NAME=*]?COLUMN_NAME", '', false, Mq_Mode::PREPARED_STMT);
@@ -548,7 +575,8 @@ class AlxMq extends Mq
             if (trim($part[5])) if (preg_match('/\blimit\b/', $part[5])) {
                 $limit   = " $part[5] ";
                 $part[5] = '';
-            } else $part[5] = " GROUP BY $part[5] ";
+            }
+            else $part[5] = " GROUP BY $part[5] ";
             $part2 = (trim($part[2]) == "" ? "" : " WHERE $part[2]");
             //
             // request
@@ -592,7 +620,7 @@ class AlxMq extends Mq
      * См. Mq::parse() for $req syntax
      *
      * @param string       $req
-     * @param string       $sigma При выполнении серии запросов нумеруется сквозным образом
+     * @param string       $sigma_or_params При выполнении серии запросов нумеруется сквозным образом
      * @param array|bool   $params
      * @param int|\Mq_Mode $mode
      * @param bool         $isLog
@@ -600,17 +628,20 @@ class AlxMq extends Mq
      * @throws MqInvalidArgumentException
      * @return string|array|bool|mysqli_result|mysqli_stmt mysqli_result
      */
-    public function req($req, $sigma = '', $params = null, $mode = Mq_Mode::SMART_DATA, $isLog = false)
+    public function req($req, $sigma_or_params = null, $params = null, $mode = Mq_Mode::SMART_DATA, $isLog = false)
     {
+        if ($sigma_or_params !== null && !is_array($sigma_or_params) && $params === null) {
+            $sigma_or_params = [$sigma_or_params]; // this is params
+        }
         //
         // Short form req('class[id=*]?*',$class_id)
-        if (is_array($sigma)) {
-            $params = $sigma;
+        if (is_array($sigma_or_params)) {
+            $params = $sigma_or_params;
             $sigma  = '';
             foreach ($params as $param) {
                 $type = gettype($param);
                 if (preg_match('!array|object|resource!i', $type)) {
-                    throw new MqInvalidArgumentException($param, 'Param not scalar. ' . \Invntrm\varDumpRet([$req, $params]));
+                    throw new \MqInvalidArgumentException('The param is not scalar', $param, $this);
                 }
                 $sigma .= preg_replace(
                     ['!^bool.*$!i', '!^int.*$!i', '!^double$!i', '!^str.*$!i'],
@@ -619,12 +650,15 @@ class AlxMq extends Mq
                 );
             }
         }
+        else {
+            $sigma = $sigma_or_params ? $sigma_or_params : '';
+        }
         $req = $this->parse($req, $sigma, $params, $isLog);
         return $this->performChain($req, Mq_Mode::REQUEST, $mode, ['sigma' => $sigma, 'params' => $params], $isLog);
     }
 }
 
-class MqException extends Exception
+class MqException extends \Invntrm\ExtendedException
 {
     /**
      * @param string $message
@@ -633,22 +667,34 @@ class MqException extends Exception
      */
     public function __construct($message, $args, $driverError)
     {
-        \Exception::__construct($message
-            . " \n\t\t\t Args: " . \Invntrm\varDumpRet($args)
-            . " \n\t\t\t DriverError: " . \Invntrm\varDumpRet($driverError)
+        parent::__construct($message,
+            "Args:\n" . \Invntrm\varDumpRet($args)
+            . "\nDriverError:\n" . \Invntrm\varDumpRet($driverError)
         );
     }
 }
 
-class MqInvalidArgumentException extends InvalidArgumentException
+class MqInvalidArgumentException extends \Invntrm\ExtendedInvalidArgumentException
 {
     /**
-     * @param string|array $params
-     * @param string       $message
+     * @var Exception
      */
-    public function __construct($params, $message = ' param(s) not given')
+    private $self;
+
+    /**
+     * @param string       $message
+     * @param string|array $params
+     * @param \Mq          $self
+     */
+    public function __construct($message, $params, $self)
     {
-        \Exception::__construct(\Invntrm\varDumpRet($params) . $message);
+        parent::__construct(
+            $message,
+            "\nParams:\n" . \Invntrm\varDumpRet($params)
+            . "\nInitial request string:\n" . $self->getInitialRequest()
+            . "\nInitial args:\n" . \Invntrm\varDumpRet($self->getInitialArgs())
+        );
+        $this->self = $self;
     }
 }
 
