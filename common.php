@@ -8,7 +8,8 @@ namespace Invntrm;
 
 define('ROOT', $_SERVER['DOCUMENT_ROOT'] . '/');
 define('SRV', ROOT . '_ass/');
-$C = function ($a) { return $a; };
+$C    = function ($a) { return $a; }; // for injecting  consts into php strings .: "my const: {$C(MY_CONST)}";
+$_PUT = \Invntrm\get_parse_str(file_get_contents("php://input"));
 
 ///**
 // * Convert error messages to Exceptions
@@ -27,27 +28,74 @@ $C = function ($a) { return $a; };
 //
 //set_error_handler("exception_error_handler");
 
+// ---------------------------------------------------------------------------------------------------------------------
+// DATE TIME FUNCTIONS BLOCK
+// ---------------------------------------------------------------------------------------------------------------------
+
+// ATTENTION PLEASE!
+// **NOTE**: Use `$count = 2; strtotime("+{$count} months", time())` for time deltas
+// Url: http://php.net/manual/ru/intro.datetime.php
+// Url: http://php.net/manual/ru/class.datetime.php
+
+const DATE_TIME_MYSQL = 'Y-m-d';
+
+/**
+ * @param $time
+ *
+ * @throws \RuntimeException
+ * @return string
+ */
 function unixTimeToSqlDate($time)
 {
     date_default_timezone_set('Europe/Moscow');
-    return (date('Y-m-d', $time));
+    $newSqlDate = (date(DATE_TIME_MYSQL, $time));
+    if (!is_string($newSqlDate)) throw new \RuntimeException("Date conversion error. date(DATE_TIME_MYSQL,{$time}); DATE_TIME_MYSQL=" . DATE_TIME_MYSQL);
+    return (string)$newSqlDate;
 }
 
+/**
+ * @param $date string
+ *
+ * @return int
+ */
 function sqlDateToUnixTime($date)
 {
     date_default_timezone_set('Europe/Moscow');
     return strtotime($date);
 }
 
-function daysToSeconds($days) { return $days * 24 * 3600; }
+/**
+ * @param $days int
+ *
+ * @return int
+ */
+function daysToSeconds($days) { return (int)($days * 24 * 3600); }
 
-function secondsToDays($days) { return $days / (24 * 3600); }
+/**
+ * @param $days int
+ *
+ * @return int
+ */
+function secondsToDays($days) { return (int)($days / (24 * 3600)); }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// END
+// ---------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @param $array array
+ * @param $key   string|int
+ *
+ * @return mixed|string
+ */
 function true_get($array, $key)
 {
     return isset($array[$key]) ? $array[$key] : '';
 }
 
+/**
+ * @return void
+ */
 function true_session_start()
 {
     if (session_status() == PHP_SESSION_NONE) session_start();
@@ -62,7 +110,6 @@ function true_array_map($callback, $array)
     foreach ($array as $key => $val) {
         $resultArray[$key] = $callback($val, $key);
     }
-    // \Invntrm\_d([$array, $resultArray]);
     return $resultArray;
 }
 
@@ -82,7 +129,8 @@ function true_sort($valueOrigin)
  *
  * @return array
  */
-function get_parse_str($str) {
+function get_parse_str($str)
+{
     $outArr = [];
     parse_str($str, $outArr);
     return $outArr;
@@ -361,18 +409,30 @@ function getDirList($path, $excludeMimes = [], $isDebug = false)
 }
 
 /**
+ * @return string
+ */
+function getLogPath () {
+    $mode = (IS_DEBUG_ALX === true) ? 'dev': 'prod';
+    $log_path = "/var/www/logs/{$_SERVER['SERVER_NAME']}/{$mode}_logs/";
+    exec("mkdir -p {$log_path}");
+    return $log_path;
+}
+
+/**
+ * version 2
  * @param        $text
  * @param bool   $isTrace
  * @param string $logName
  */
 function _d($text, $isTrace = false, $logName = 'check')
 {
+    $log_path = getLogPath();
     if (!is_bool($isTrace)) {
         $text    = [$text, $isTrace];
         $isTrace = false;
     }
     file_put_contents(
-        ROOT . "_logs/{$logName}.log",
+        "{$log_path}/{$logName}.log",
         "\n" . date(DATE_RSS) . '>'
         . \Invntrm\varDumpRet($text)
         . ($isTrace ? "\nTrace:\n" . \Invntrm\varDumpRet(debug_backtrace()) : ''),
@@ -381,12 +441,14 @@ function _d($text, $isTrace = false, $logName = 'check')
 }
 
 /**
+ * version 2
  * @param $type
  * @param $text
  */
 function bugReport2($type, $text)
 {
-    file_put_contents(ROOT . '_logs/error.log', "\n" . date(DATE_RSS) . '>' . $type . '>' . varDumpRet($text), FILE_APPEND);
+    $log_path = getLogPath();
+    file_put_contents($log_path.'/error.log', date(DATE_RSS) . '>' . $type . '>' . varDumpRet($text) . "\n\n", FILE_APPEND);
 }
 
 /**
@@ -958,6 +1020,12 @@ class ExtendedException extends \Exception
         return $this->codeExtended;
     }
 
+    public function getTraceAsStringImproved()
+    {
+        $rawTrace = parent::getTraceAsString();
+        return preg_replace('!\((.*?)\):!', ':$1', $rawTrace);
+    }
+
     /**
      * @param string     $codeExtended
      * @param string     $description
@@ -972,6 +1040,7 @@ class ExtendedException extends \Exception
     }
 
 }
+
 class ExtendedInvalidArgumentException extends \InvalidArgumentException
 {
     protected $codeExtended;
@@ -984,11 +1053,17 @@ class ExtendedInvalidArgumentException extends \InvalidArgumentException
         return $this->codeExtended;
     }
 
+    public function getTraceAsStringImproved()
+    {
+        $rawTrace = parent::getTraceAsString();
+        return preg_replace('!\((.*?)\):!', ':$1', $rawTrace);
+    }
+
     /**
-     * @param string     $codeExtended
-     * @param string     $description
-     * @param \Exception $previous    [optional]
-     * @param int        $numericCode [optional]
+     * @param string     $codeExtended - string error identification
+     * @param string     $description  - string human readable description
+     * @param \Exception $previous     [optional] - previous exception pointer
+     * @param int        $numericCode  [optional] - number error identification
      */
     public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null)
     {
@@ -997,4 +1072,44 @@ class ExtendedInvalidArgumentException extends \InvalidArgumentException
         $this->codeExtended = ($codeExtended);
     }
 
+}
+
+
+/**
+ * @todo add mappings
+ * @param $e                      \Exception|\Invntrm\ExtendedException|\Invntrm\ExtendedInvalidArgumentException
+ * @param $endpoint               string
+ * @param $endpoint_message       string
+ * @param $endpoint_code_extended string
+ *
+ * @return array
+ */
+function processException(\Exception $e, $endpoint = '', $endpoint_message = '', $endpoint_code_extended = '')
+{
+    $e_str_error_id  = (method_exists($e, 'getCodeExtended') ? $e->getCodeExtended() : $e->getCode());
+    $e_str_message = $e->getMessage();
+    //
+    $str_error_id = $endpoint_code_extended ? $endpoint_code_extended : $e_str_error_id;
+    $str_message = $endpoint_message ? $endpoint_message : $e->getMessage();
+    $num_code = $e->getCode();
+    $error_object = [
+        'error'         => $str_error_id,
+        'error_message' => $str_message,
+    ];
+    if(IS_DEBUG_ALX === true) {
+        $error_object = array_merge($error_object,[
+            'error_debug'   => [
+                'error'=>$e_str_error_id,
+                'error_message'=>$e_str_message,
+                'error_debug'=>$e
+            ]
+        ]);
+    }
+    if(!empty($num_code)) {
+        $error_object = array_merge($error_object,[
+            'error_code' => $num_code
+        ]);
+    }
+    \Invntrm\bugReport2($endpoint, $error_object);
+    return $error_object;
 }

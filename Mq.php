@@ -80,11 +80,11 @@ class Mq
         $this->driver = new mysqli(); // Параметры устанавливаются из php-conf
         $this->driver->real_connect();
         if ($error = $this->getCheckDriverError()) {
-            throw new \MqException('Initialization not success', $args, $error);
+            throw new \MqException('initialization_failed', $args, $error, $this);
         }
         $isSelectDbSuccess = $this->driver->select_db($schemeName);
         if (!$isSelectDbSuccess)
-            throw new \MqException('Db not found!', $args, $error);
+            throw new \MqException('db_not_found!', $args, $error, $this);
         /* MANUAL
          * Очень важно выставление правильной кодировки
          * В настройках mySQL-сервера (my.conf) или php-командой из mySQL API:
@@ -95,23 +95,23 @@ class Mq
     public function startTransaction()
     {
         if ($this->driver->autocommit(false))
-            throw new MqException('autocommit=false was not set', [], $this->getCheckDriverError());
+            throw new MqException('autocommit_mustbe_false', [], $this->getCheckDriverError(), $this);
     }
 
     public function commitTransaction()
     {
         if ($this->driver->commit())
-            throw new MqException('commit was not success', [], $this->getCheckDriverError());
+            throw new MqException('commit_failed', [], $this->getCheckDriverError(), $this);
         if ($this->driver->autocommit(true))
-            throw new MqException('autocommit=true was not set', [], $this->getCheckDriverError());
+            throw new MqException('autocommit_mustbe_true', [], $this->getCheckDriverError(), $this);
     }
 
     public function rollbackTransaction()
     {
         if ($this->driver->rollback())
-            throw new MqException('rollback was not success', [], $this->getCheckDriverError());
+            throw new MqException('rollback_failed', [], $this->getCheckDriverError(), $this);
         if ($this->driver->autocommit(false))
-            throw new MqException('rollback: autocommit=false was not set', [], $this->getCheckDriverError());
+            throw new MqException('autocommit_mustbe_false', [], $this->getCheckDriverError(), $this);
     }
 
     /**
@@ -153,14 +153,14 @@ class Mq
      */
     public function fromReqToStmt($req, $extra = [], $isLog = false)
     {
-        if (!$req) throw new \MqInvalidArgumentException('Req param not given', $req, $this);
+        if (!$req) throw new \MqInvalidArgumentException('req_param_not_specified', $req, $this);
         $req         = $this->getPreprocessedReq($req);
         $this->req   = $req;
         $args        = ['req' => $req];
         $this->stmt  = $stmt = $this->driver->prepare($req);
         $driverError = $this->getCheckDriverError();
         if (!$stmt || $driverError) {
-            throw new MqException('STMT generate error', $args, $driverError);
+            throw new MqException('stmt_generate_error', $args, $driverError, $this);
         }
         $this->logDebug(__METHOD__, ['req' => $req, 'stmt' => $stmt], $isLog);
         return $stmt;
@@ -192,18 +192,19 @@ class Mq
         $sigma        = $extra['sigma'];
         $params       = $extra['params'];
         $this->params = $params;
-        if (!$stmt) throw new \MqInvalidArgumentException('Stmt is not provided', $stmt, $this);
+        if (!$stmt) throw new \MqInvalidArgumentException('stmt_is_not_specified', $stmt, $this);
         if (!is_array($params) && $params !== null) $params = [$params];
         $args  = ['req' => $this->req, 'sigma' => $sigma, 'params' => $params];
-        $count = [
+        $counts = [
             'params'       => \Invntrm\true_count($params),
             'sigma'        => strlen($sigma),
             'placeholders' => preg_match_all('!\?!', $this->req)
         ];
-        if ($count['sigma'] != $count['params'] || $count['placeholders'] != $count['params'])
-            throw new \MqException('Lengths of sigma, params and placeholder are not equal. Counts: '
-                . \Invntrm\varDumpRet($count), $args, $this->getCheckDriverError());
-        $isArg = !!$count['params'];
+        if ($counts['sigma'] != $counts['params'] || $counts['placeholders'] != $counts['params'])
+            throw new \MqException(
+                'sigma_params_placeholder_musthave_equal_size', ['counts' => $counts, 'initial_args' => $args], $this->getCheckDriverError(), $this
+            );
+        $isArg = !!$counts['params'];
         //
         // Bind params
         if ($isArg) {
@@ -216,7 +217,7 @@ class Mq
         // Execute and get result
         $isExecuteSuccess = $stmt->execute();
         if (!$isExecuteSuccess)
-            throw new MqException('Execute fault', $args, $this->getCheckDriverError());
+            throw new MqException('execute_fault', $args, $this->getCheckDriverError(), $this);
         if (preg_match('!^\s*DELETE!i', $this->req)) {
             $result = !!$stmt->affected_rows;
             $isDeleteRequest = true;
@@ -258,7 +259,7 @@ class Mq
             $result = $iterative; // is anything deleted
         }
         else {
-            if (!$iterative) throw new \MqInvalidArgumentException('Iterative not provided', $iterative, $this);
+            if (!$iterative) throw new \MqInvalidArgumentException('iterative_not_specified', $iterative, $this);
             $result = $iterative->fetch_all(MYSQLI_ASSOC); // Or get result
         }
         $this->logDebug(__METHOD__, ['iterator' => $iterative, 'result' => $result], $isLog);
@@ -307,7 +308,7 @@ class Mq
         if (!$this->isLog && !$isLog) return;
         if (!is_string($message)) $message = \Invntrm\varDumpRet($message);
         if ($stage) $stage = "$stage:";
-        \Invntrm\_d(__CLASS__ . ':' . $method . ':' . $stage . $message);
+        \Invntrm\_d(__CLASS__ . ':' . $method . ':' . $stage . $message, IS_DEBUG_ALX === true, 'mq');
     }
 
     /**
@@ -318,7 +319,7 @@ class Mq
     protected function getPreprocessedReq($req)
     {
         $req = preg_replace_callback('/^([a-z\.\-_]+)\.sql$/i', function ($matches) {
-            return file_get_contents("sql-reqs/$matches[1].sql");
+            return file_get_contents("sql-reqs/$matches[1].sql"); // todo check working it
         }, $req);
         $req = preg_replace('!\[(?:SCHEME_NAME|TABLE_SCHEMA)\]!', '"' . $this->schemeName . '"', $req); // Название "базы данных" (в терминах mySQL)
         $req = preg_replace('!\[SCHEME_NAME_DEFAULT\]!', '"' . SCHEME_NAME_DEFAULT . '"', $req); // Название "базы данных" (в терминах mySQL)
@@ -642,7 +643,7 @@ class AlxMq extends Mq
             foreach ($params as $param) {
                 $type = gettype($param);
                 if (preg_match('!array|object|resource!i', $type)) {
-                    throw new \MqInvalidArgumentException('The param is not scalar', $param, $this);
+                    throw new \MqInvalidArgumentException('param_mustbe_scalar', $param, $this);
                 }
                 $sigma .= preg_replace(
                     ['!^bool.*$!i', '!^int.*$!i', '!^double$!i', '!^str.*$!i'],
@@ -662,16 +663,25 @@ class AlxMq extends Mq
 class MqException extends \Invntrm\ExtendedException
 {
     /**
-     * @param string $message
-     * @param array  $args
-     * @param string $driverError
+     * @var int|null
      */
-    public function __construct($message, $args, $driverError)
+    private $self;
+
+    /**
+     * @param string   $codeExtended
+     * @param array    $args
+     * @param string   $driverError
+     * @param \Mq|\AlxMq $self
+     */
+    public function __construct($codeExtended, $args, $driverError, $self)
     {
-        parent::__construct($message,
+        parent::__construct($codeExtended,
             "Args:\n" . \Invntrm\varDumpRet($args)
             . "\nDriverError:\n" . \Invntrm\varDumpRet($driverError)
+            . "\nInitial request string:\n" . $self->getInitialRequest()
+            . "\nInitial args:\n" . \Invntrm\varDumpRet($self->getInitialArgs())
         );
+        $this->self = $self;
     }
 }
 
@@ -683,14 +693,14 @@ class MqInvalidArgumentException extends \Invntrm\ExtendedInvalidArgumentExcepti
     private $self;
 
     /**
-     * @param string       $message
+     * @param string       $codeExtended
      * @param string|array $params
-     * @param \Mq          $self
+     * @param \Mq|\AlxMq          $self
      */
-    public function __construct($message, $params, $self)
+    public function __construct($codeExtended, $params, $self)
     {
         parent::__construct(
-            $message,
+            $codeExtended,
             "\nParams:\n" . \Invntrm\varDumpRet($params)
             . "\nInitial request string:\n" . $self->getInitialRequest()
             . "\nInitial args:\n" . \Invntrm\varDumpRet($self->getInitialArgs())
