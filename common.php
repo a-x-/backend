@@ -27,8 +27,17 @@ $C = function ($a) { return $a; };
 //
 //set_error_handler("exception_error_handler");
 
+/**
+ * @param $array array
+ * @param $key string|int
+ *
+ * @return string
+ * @throws \Exception
+ */
 function true_get ($array,$key)
 {
+    if(!is_array($array))
+        throw new \Exception('$array must be array'.varDumpRet(['array'=>$array,'key'=>$key]));
     return isset($array[$key]) ? $array[$key] : '';
 }
 
