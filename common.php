@@ -95,6 +95,8 @@ function true_count($array)
  */
 function true_get($array, $key)
 {
+    if(!is_array($array))
+        throw new \Exception('$array must be array'.varDumpRet(['array'=>$array,'key'=>$key]));
     return isset($array[$key]) ? $array[$key] : '';
 }
 
