@@ -1076,6 +1076,7 @@ class ExtendedInvalidArgumentException extends \InvalidArgumentException
 
 
 /**
+ * Process API request exception
  * @todo add mappings
  * @param $e                      \Exception|\Invntrm\ExtendedException|\Invntrm\ExtendedInvalidArgumentException
  * @param $endpoint               string
@@ -1086,6 +1087,10 @@ class ExtendedInvalidArgumentException extends \InvalidArgumentException
  */
 function processException(\Exception $e, $endpoint = '', $endpoint_message = '', $endpoint_code_extended = '')
 {
+    \Invntrm\bugReport2($endpoint, ['Pre error record',$endpoint,$endpoint_message,$endpoint_code_extended,$e]);
+
+    global $_PUT;
+    $method   = strtolower($_SERVER['REQUEST_METHOD']);
     $e_str_error_id  = (method_exists($e, 'getCodeExtended') ? $e->getCodeExtended() : $e->getCode());
     $e_str_message = $e->getMessage();
     //
@@ -1095,6 +1100,10 @@ function processException(\Exception $e, $endpoint = '', $endpoint_message = '',
     $error_object = [
         'error'         => $str_error_id,
         'error_message' => $str_message,
+        'request_method'=> $method,
+        'request_string'=> $endpoint,
+        'query_params'  => $_REQUEST,
+        'payload_params'=> $_PUT
     ];
     if(IS_DEBUG_ALX === true) {
         $error_object = array_merge($error_object,[

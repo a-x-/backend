@@ -295,21 +295,6 @@ class Mq
     // Other methods
     //
 
-    /**
-     * Record debug log
-     *
-     * @param        $method
-     * @param string $message
-     * @param        $isLog
-     * @param string $stage
-     */
-    protected function logDebug($method, $message, $isLog, $stage = '')
-    {
-        if (!$this->isLog && !$isLog) return;
-        if (!is_string($message)) $message = \Invntrm\varDumpRet($message);
-        if ($stage) $stage = "$stage:";
-        \Invntrm\_d(__CLASS__ . ':' . $method . ':' . $stage . $message, IS_DEBUG_ALX === true, 'mq');
-    }
 
     /**
      * @param $req
@@ -399,6 +384,29 @@ class Mq
     public function getInitialArgs()
     {
         return $this->params;
+    }
+
+
+    /**
+     * Record debug log
+     *
+     * @param        $method
+     * @param string $message
+     * @param        $isLog
+     * @param string $stage
+     */
+    protected function logDebug($method, $message, $isLog, $stage = '')
+    {
+        if (!$this->isLog && !$isLog) return;
+        if (!is_string($message)) $message = \Invntrm\varDumpRet($message);
+        if ($stage) $stage = "$stage:";
+        \Invntrm\_d(
+            __CLASS__ . ':' . $method . ':' . $stage . $message
+                . "\nInitial request string:\n" . $self->getInitialRequest()
+                . "\nInitial args:\n" . \Invntrm\varDumpRet($self->getInitialArgs()),
+            IS_DEBUG_ALX === true,
+            'mq'
+        );
     }
 }
 
@@ -675,12 +683,15 @@ class MqException extends \Invntrm\ExtendedException
      */
     public function __construct($codeExtended, $args, $driverError, $self)
     {
-        parent::__construct($codeExtended,
+        //
+        // Get short message if driver error present or debug mode activated
+        $message = ($driverError && !$self->isLog) ? $driverError :
             "Args:\n" . \Invntrm\varDumpRet($args)
             . "\nDriverError:\n" . \Invntrm\varDumpRet($driverError)
             . "\nInitial request string:\n" . $self->getInitialRequest()
-            . "\nInitial args:\n" . \Invntrm\varDumpRet($self->getInitialArgs())
-        );
+            . "\nInitial args:\n" . \Invntrm\varDumpRet($self->getInitialArgs());
+
+        parent::__construct($codeExtended, $message);
         $this->self = $self;
     }
 }
