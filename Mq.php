@@ -304,7 +304,7 @@ class Mq
     protected function getPreprocessedReq($req)
     {
         $req = preg_replace_callback('/^([a-z\.\-_]+)\.sql$/i', function ($matches) {
-            return file_get_contents("sql-reqs/$matches[1].sql"); // todo check working it
+            return file_get_contents(__DIR__ . "/../../../_data/_sql/$matches[1].sql"); // ${ROOT}/_data/_sql -- sql fragments place
         }, $req);
         $req = preg_replace('!\[(?:SCHEME_NAME|TABLE_SCHEMA)\]!', '"' . $this->schemeName . '"', $req); // Название "базы данных" (в терминах mySQL)
         $req = preg_replace('!\[SCHEME_NAME_DEFAULT\]!', '"' . SCHEME_NAME_DEFAULT . '"', $req); // Название "базы данных" (в терминах mySQL)
