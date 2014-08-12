@@ -78,6 +78,20 @@ function daysToSeconds($days) { return (int)($days * 24 * 3600); }
  */
 function secondsToDays($days) { return (int)($days / (24 * 3600)); }
 
+/**
+ * 
+ * @example 12 Авг 2014
+ */
+function getRuDate($time)
+{
+    date_default_timezone_set("Europe/Moscow");
+    setlocale(LC_ALL,"ru_RU.UTF-8"); // must be installed by `dpkg-reconfigure locales`
+    // See http://php.net/manual/ru/function.strftime.php
+    return strftime("%d %b %Y", $time);
+}
+
+
+
 // ---------------------------------------------------------------------------------------------------------------------
 // END
 // ---------------------------------------------------------------------------------------------------------------------
