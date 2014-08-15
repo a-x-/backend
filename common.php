@@ -29,28 +29,30 @@ $C = function ($a) { return $a; };
 
 /**
  * @param $array array
- * @param $key string|int
+ * @param $key   string|int
  *
  * @return string
  * @throws \Exception
  */
-function true_get ($array,$key)
+function true_get($array, $key)
 {
-    if(!is_array($array))
-        throw new \Exception('$array must be array'.varDumpRet(['array'=>$array,'key'=>$key]));
+    if (!is_array($array))
+        throw new \Exception('$array must be array' . varDumpRet(['array' => $array, 'key' => $key]));
     return isset($array[$key]) ? $array[$key] : '';
 }
 
-function true_session_start(){
-    if(session_status() == PHP_SESSION_NONE) session_start();
+function true_session_start()
+{
+    if (session_status() == PHP_SESSION_NONE) session_start();
 }
 
 /**
  * Send to callback value and key, instead of array_map, which sends only value
  */
-function true_array_map($callback, $array) {
+function true_array_map($callback, $array)
+{
     $resultArray = [];
-    foreach($array as $key => $val) {
+    foreach ($array as $key => $val) {
         $resultArray[$key] = $callback($val, $key);
     }
     // \Invntrm\_d([$array, $resultArray]);
@@ -60,7 +62,7 @@ function true_array_map($callback, $array) {
 function true_sort($valueOrigin)
 {
     $value = $valueOrigin;
-    if (empty($value) ) return [];
+    if (empty($value)) return [];
     if (!is_array($value)) throw \Exception('true_sort accept arrays only');
     sort($value);
     return $value;
@@ -135,19 +137,20 @@ function buildPage($path, $params_origin = [])
     $css        = "<style>/* $path */" . $css . "</style>\n";
     //                                                      // L  Inject   View secret       comment
     $params = [];
-    $params = array_merge($params, $_REQUEST);     // 5 DANGEROUS          add server constants
-    if(isset($_SESSION))
+    $params = array_merge($params, $_REQUEST); // 5 DANGEROUS          add server constants
+    if (isset($_SESSION))
         $params = array_merge($params, $_SESSION); // 4 UNTRUST            add server constants
-    $params = array_merge($params, $_SERVER);      // 3 UNTRUST            add server constants
+    $params = array_merge($params, $_SERVER); // 3 UNTRUST            add server constants
     $params = array_merge($params, get_defined_constants()); // 2 TRUST    DANGEROUS  add constants
-    $params = array_merge($params, $params_origin);// 0 TRUST              add page call params
-    $params = array_merge($params, $pageObject);   // 1 TRUST              add page php script given object
+    $params = array_merge($params, $params_origin); // 0 TRUST              add page call params
+    $params = array_merge($params, $pageObject); // 1 TRUST              add page php script given object
     // @todo add params filters
     //
     $paramMapping = (isset($pageObject['_PARAM_MAPPING_'])) ? $pageObject['_PARAM_MAPPING_'] : [];
     if (!isset($params['styles'])) {
         $params['styles'] = $css;
-    } else {
+    }
+    else {
         $params['styles'] = $css . $params['styles'];
     }
     if (isset($pageObject['_STOP_'])) {
@@ -174,7 +177,8 @@ function buildPage($path, $params_origin = [])
     if (isset($meta['base'])) { // if base tpl is declared
         $params['content'] = $out;
         return buildPage($meta['base'], $params);
-    } else
+    }
+    else
         return $out;
 }
 
@@ -209,7 +213,8 @@ function specifyTemplateExtended($template, $vars = [], $paramMapping = [])
             if (!isset($vars[$matches[1]])) {
                 #bugReport2("specifyTemplate()", " placeholder '$matches[1]' haven't value");
                 return '';
-            } else return $vars[$matches[1]];
+            }
+            else return $vars[$matches[1]];
         },
         $out
     );
@@ -221,7 +226,8 @@ function specifyTemplateExtended($template, $vars = [], $paramMapping = [])
             if (!isset($vars[$matches[1]]) || !isset($vars[$matches[1]][$matches[2]])) {
                 bugReport2("specifyTemplate()", "placeholder '[ $matches[1] ][ $matches[2] ]' haven't value");
                 return '';
-            } else
+            }
+            else
                 return $vars[$matches[1]][$matches[2]];
         }
         , $out
@@ -257,7 +263,8 @@ function getFileContent($fileName__filePath, $defaultExtension, $defaultPrefix)
             $filePath .= '.' . ($defaultExtension ? $defaultExtension : 'html');
         }
         $template = (file_exists($filePath)) ? file_get_contents($filePath) : false;
-    } else {
+    }
+    else {
         $template = $fileName__filePath;
     }
     return [$template, dirname($filePath) . '/', preg_replace('!\..*?$!', '', basename($filePath))];
@@ -281,7 +288,8 @@ function get_require($phpFileName, $prefix = '', $isStrict = false, $params = []
     $phpFileName = $prefix . preg_replace('!/$!', '', $phpFileName) . '.php';
     if ($isStrict) {
         require($phpFileName);
-    } else {
+    }
+    else {
         @include($phpFileName);
     }
     if (isset($exports))
@@ -322,26 +330,27 @@ function getDirList($path, $excludeMimes = array(), $isDebug = false)
         // Закрываем директорию
         closedir($dir);
         return $out_arr;
-    } else
+    }
+    else
         return false;
 }
 
 /**
  * @param      $text
  * @param bool $isTrace
- * @param $text
+ * @param      $text
  */
 function _d($text, $isTrace = false, $logName = 'check')
 {
-    if(!is_bool($isTrace)) {
-        $text = [$text, $isTrace];
+    if (!is_bool($isTrace)) {
+        $text    = [$text, $isTrace];
         $isTrace = false;
     }
     file_put_contents(
         ROOT . "_logs/{$logName}.log",
-        "\n"  . date(DATE_RSS)  . '>'
-            . \Invntrm\varDumpRet($text)
-            . ($isTrace ? "\nTrace:\n".\Invntrm\varDumpRet(debug_backtrace()) : ''),
+        "\n" . date(DATE_RSS) . '>'
+        . \Invntrm\varDumpRet($text)
+        . ($isTrace ? "\nTrace:\n" . \Invntrm\varDumpRet(debug_backtrace()) : ''),
         FILE_APPEND
     );
 }
@@ -478,17 +487,19 @@ function xml2array($xmlObject, $out = array())
  *             [1] => 1
  *             [2] => 2
  *          )
+ *
  * @param $var
  * @param $isPretty
+ *
  * @return mixed
  */
 function varDumpRet($var, $isPretty = false)
 {
     $out = print_r($var, true);
     if ($isPretty) {
-        $out = preg_replace('!\n!',' ', $out);
-        $out = preg_replace('!\[(.*?)\]!','"$1"', $out);
-        $out = preg_replace('!Array\s*\((.*)\)!i','[$1]',$out);
+        $out = preg_replace('!\n!', ' ', $out);
+        $out = preg_replace('!\[(.*?)\]!', '"$1"', $out);
+        $out = preg_replace('!Array\s*\((.*)\)!i', '[$1]', $out);
     }
     return $out;
 }
@@ -536,11 +547,13 @@ function array_filter_bwLists($array, $whiteList = [], $blackList = [])
  */
 function array_filter_bwListsByKeys($array, $whiteList = [], $blackList = [])
 {
-    foreach(['whiteList','blackList'] as $type) {
-        $type2 = $type . 'KeyVal';
+    foreach (['whiteList', 'blackList'] as $type) {
+        $type2  = $type . 'KeyVal';
         $$type2 = [];
-        if(!$$type)$$type = [];
-        foreach($$type as $item) { ${$type2} [$item] = null; }
+        if (!$$type) $$type = [];
+        foreach ($$type as $item) {
+            ${$type2} [$item] = null;
+        }
     }
     return array_filter_bwLists($array, $whiteListKeyVal, $blackListKeyVal);
 }
@@ -618,32 +631,37 @@ function hruDump($array, $level = 0)
 
 /**
  * Send project specific mail with message dump
+ *
  * @param $data         array - Should contains [userName,userMail]
  *
  * @param $to
  * @param $consts
  * @param $theme
+ *
  * @return bool
  */
 function mailDump($data, $to, $consts, $theme)
 {
     $message = hruDump($data);
-    mailProject($message, $to, '', $consts,$theme);
+    mailProject($message, $to, '', $consts, $theme);
 }
 
 /**
  * Send project specific mail
+ *
  * @param $message
  * @param $to
  * @param $fromName
  * @param $consts
  * @param $theme
+ *
  * @return bool
  */
-function mailProject($message, $to, $fromName, $consts, $theme) {
+function mailProject($message, $to, $fromName, $consts, $theme)
+{
     $fromName = transliterateCyr($fromName);
     $fromName = $fromName ? "$fromName (via site)" : $consts['PROJECT_NAME_STUB'];
-    $from = "$fromName <{$consts['MAILER_EMAIL']}>";
+    $from     = "$fromName <{$consts['MAILER_EMAIL']}>";
     //
     // MIME message type
     $headers
@@ -750,12 +768,15 @@ function recursiveDegenerateArrOptimize($arr)
 
 /**
  * @link https://gist.github.com/vindia/1476814
+ *
  * @param $string
+ *
  * @return mixed
  */
-function transliterateCyr($string) {
-    $roman = array("Sch","sch",'Yo','Zh','Kh','Ts','Ch','Sh','Yu','ya','yo','zh','kh','ts','ch','sh','yu','ya','A','B','V','G','D','E','Z','I','Y','K','L','M','N','O','P','R','S','T','U','F','','Y','','E','a','b','v','g','d','e','z','i','y','k','l','m','n','o','p','r','s','t','u','f','','y','','e');
-    $cyrillic = array("Щ","щ",'Ё','Ж','Х','Ц','Ч','Ш','Ю','я','ё','ж','х','ц','ч','ш','ю','я','А','Б','В','Г','Д','Е','З','И','Й','К','Л','М','Н','О','П','Р','С','Т','У','Ф','Ь','Ы','Ъ','Э','а','б','в','г','д','е','з','и','й','к','л','м','н','о','п','р','с','т','у','ф','ь','ы','ъ','э');
+function transliterateCyr($string)
+{
+    $roman    = array("Sch", "sch", 'Yo', 'Zh', 'Kh', 'Ts', 'Ch', 'Sh', 'Yu', 'ya', 'yo', 'zh', 'kh', 'ts', 'ch', 'sh', 'yu', 'ya', 'A', 'B', 'V', 'G', 'D', 'E', 'Z', 'I', 'Y', 'K', 'L', 'M', 'N', 'O', 'P', 'R', 'S', 'T', 'U', 'F', '', 'Y', '', 'E', 'a', 'b', 'v', 'g', 'd', 'e', 'z', 'i', 'y', 'k', 'l', 'm', 'n', 'o', 'p', 'r', 's', 't', 'u', 'f', '', 'y', '', 'e');
+    $cyrillic = array("Щ", "щ", 'Ё', 'Ж', 'Х', 'Ц', 'Ч', 'Ш', 'Ю', 'я', 'ё', 'ж', 'х', 'ц', 'ч', 'ш', 'ю', 'я', 'А', 'Б', 'В', 'Г', 'Д', 'Е', 'З', 'И', 'Й', 'К', 'Л', 'М', 'Н', 'О', 'П', 'Р', 'С', 'Т', 'У', 'Ф', 'Ь', 'Ы', 'Ъ', 'Э', 'а', 'б', 'в', 'г', 'д', 'е', 'з', 'и', 'й', 'к', 'л', 'м', 'н', 'о', 'п', 'р', 'с', 'т', 'у', 'ф', 'ь', 'ы', 'ъ', 'э');
     return str_replace($cyrillic, $roman, $string);
 }
 
@@ -831,14 +852,14 @@ function format($msg, $vars)
 {
     $vars = (array)$vars;
 
-    $msg = preg_replace_callback('#\{\}#', function($r){
+    $msg = preg_replace_callback('#\{\}#', function ($r) {
         static $i = 0;
-        return '{'.($i++).'}';
+        return '{' . ($i++) . '}';
     }, $msg);
 
     return str_replace(
-        array_map(function($k) {
-            return '{'.$k.'}';
+        array_map(function ($k) {
+            return '{' . $k . '}';
         }, array_keys($vars)),
 
         array_values($vars),
@@ -855,20 +876,13 @@ function format($msg, $vars)
 function makeErrorCode($resp)
 {
     $error = (is_string($resp) ? $resp : $resp->getError());
-    $error = '%MESSAGE_' . strtoupper(preg_replace('/\s+/','_',$error)) . '%';
+    $error = '%MESSAGE_' . strtoupper(preg_replace('/\s+/', '_', $error)) . '%';
     return $error;
 }
 
-class Exception extends \Exception {
+class Exception extends \Exception
+{
     protected $codeExtended;
-
-    /**
-     * @return string
-     */
-    public function getCodeExtended()
-    {
-        return $this->codeExtended;
-    }
 
     /**
      * @param string     $codeExtended
@@ -878,9 +892,17 @@ class Exception extends \Exception {
      */
     public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null)
     {
-        if(!$description) $description = 'нет описания';
+        if (!$description) $description = 'нет описания';
         parent::__construct($description, $numericCode, $previous);
         $this->codeExtended = makeErrorCode($codeExtended);
+    }
+
+    /**
+     * @return string
+     */
+    public function getCodeExtended()
+    {
+        return $this->codeExtended;
     }
 
 }
