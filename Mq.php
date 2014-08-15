@@ -517,7 +517,7 @@ class AlxMq extends Mq
              * [1]--primary_table [2]--condition [3]--aim [4]-- order_col, order_dir  [5]--group
              */
 
-            $part[2] = $part2Preprocessor(@$part[2]);
+            $part[2] = $part2Preprocessor(\Invntrm\true_get($part,2));
             $part[3] = isset($part[3]) ? str_replace('>', ' AS ', $part[3]) : '';
             preg_match_all('!ref:([a-z_]+)!im', $part[2] . ',', $additionRefTables, PREG_PATTERN_ORDER);
             $part[2] = preg_replace('!ref:([a-z_]+)!im', "", $part[2]);
