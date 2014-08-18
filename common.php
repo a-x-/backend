@@ -9,6 +9,7 @@ namespace Invntrm;
 define('ROOT', $_SERVER['DOCUMENT_ROOT'] . '/');
 define('SRV', ROOT . '_ass/');
 $C = function ($a) { return $a; };
+$_PUT = \Invntrm\get_parse_str(file_get_contents("php://input"));
 
 ///**
 // * Convert error messages to Exceptions
@@ -66,6 +67,24 @@ function true_sort($valueOrigin)
     if (!is_array($value)) throw \Exception('true_sort accept arrays only');
     sort($value);
     return $value;
+}
+
+function true_strtolowercase($string) {
+    return mb_strtolower($string, 'UTF-8');
+}
+
+/**
+ * Parse post body string
+ *
+ * @param $str
+ *
+ * @return array
+ */
+function get_parse_str($str)
+{
+    $outArr = [];
+    parse_str($str, $outArr);
+    return $outArr;
 }
 
 ///**
@@ -868,6 +887,7 @@ function format($msg, $vars)
     );
 }
 
+
 /**
  * @param \YandexMoney\Response\RequestPaymentResponse|string $resp
  *
@@ -880,22 +900,14 @@ function makeErrorCode($resp)
     return $error;
 }
 
+/**
+ * @deprecated
+ * Class Exception
+ * @package Invntrm
+ */
 class Exception extends \Exception
 {
     protected $codeExtended;
-
-    /**
-     * @param string     $codeExtended
-     * @param int        $description
-     * @param \Exception $previous    [optional]
-     * @param \Exception $numericCode [optional]
-     */
-    public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null)
-    {
-        if (!$description) $description = 'нет описания';
-        parent::__construct($description, $numericCode, $previous);
-        $this->codeExtended = makeErrorCode($codeExtended);
-    }
 
     /**
      * @return string
@@ -905,4 +917,133 @@ class Exception extends \Exception
         return $this->codeExtended;
     }
 
+    /**
+     * @param string     $codeExtended
+     * @param string     $description
+     * @param \Exception $previous    [optional]
+     * @param int        $numericCode [optional]
+     */
+    public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null)
+    {
+        if (!$description) $description = 'нет описания';
+        parent::__construct($description, $numericCode, $previous);
+        $this->codeExtended = makeErrorCode($codeExtended);
+    }
+
 }
+
+class ExtendedException extends \Exception
+{
+    protected $codeExtended;
+
+    /**
+     * @return string
+     */
+    public function getCodeExtended()
+    {
+        return $this->codeExtended;
+    }
+
+    public function getTraceAsStringImproved()
+    {
+        $rawTrace = parent::getTraceAsString();
+        return preg_replace('!\((.*?)\):!', ':$1', $rawTrace);
+    }
+
+    /**
+     * @param string     $codeExtended
+     * @param string     $description
+     * @param \Exception $previous    [optional]
+     * @param int        $numericCode [optional]
+     */
+    public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null)
+    {
+        if (!$description) $description = 'Нет описания';
+        parent::__construct($description, $numericCode, $previous);
+        $this->codeExtended = ($codeExtended);
+    }
+
+}
+
+class ExtendedInvalidArgumentException extends \InvalidArgumentException
+{
+    protected $codeExtended;
+
+    /**
+     * @return string
+     */
+    public function getCodeExtended()
+    {
+        return $this->codeExtended;
+    }
+
+    public function getTraceAsStringImproved()
+    {
+        $rawTrace = parent::getTraceAsString();
+        return preg_replace('!\((.*?)\):!', ':$1', $rawTrace);
+    }
+
+    /**
+     * @param string     $codeExtended - string error identification
+     * @param string     $description  - string human readable description
+     * @param \Exception $previous     [optional] - previous exception pointer
+     * @param int        $numericCode  [optional] - number error identification
+     */
+    public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null)
+    {
+        if (!$description) $description = 'Нет описания';
+        parent::__construct($description, $numericCode, $previous);
+        $this->codeExtended = ($codeExtended);
+    }
+
+}
+
+
+/**
+ * Process API request exception
+ * @todo add mappings
+ * @param $e                      \Exception|\Invntrm\ExtendedException|\Invntrm\ExtendedInvalidArgumentException
+ * @param $endpoint               string
+ * @param $endpoint_message       string
+ * @param $endpoint_code_extended string
+ *
+ * @return array
+ */
+function processException(\Exception $e, $endpoint = '', $endpoint_message = '', $endpoint_code_extended = '')
+{
+    \Invntrm\bugReport2($endpoint, ['Pre error record',$endpoint,$endpoint_message,$endpoint_code_extended,$e]);
+
+    global $_PUT;
+    $method   = strtolower($_SERVER['REQUEST_METHOD']);
+    $e_str_error_id  = (method_exists($e, 'getCodeExtended') ? $e->getCodeExtended() : $e->getCode());
+    $e_str_message = $e->getMessage();
+    //
+    $str_error_id = $endpoint_code_extended ? $endpoint_code_extended : $e_str_error_id;
+    $str_message = $endpoint_message ? $endpoint_message : $e->getMessage();
+    $num_code = $e->getCode();
+    $error_object = [
+        'error'         => $str_error_id,
+        'error_message' => $str_message,
+        'request_method'=> $method,
+        'request_string'=> $endpoint,
+        'query_params'  => $_REQUEST,
+        'payload_params'=> $_PUT
+    ];
+    if(IS_DEBUG_ALX === true) {
+        $error_object = array_merge($error_object,[
+            'error_debug'   => [
+                'error'=>$e_str_error_id,
+                'error_message'=>$e_str_message,
+                'error_debug'=>$e
+            ]
+        ]);
+    }
+    if(!empty($num_code)) {
+        $error_object = array_merge($error_object,[
+            'error_code' => $num_code
+        ]);
+    }
+    \Invntrm\bugReport2($endpoint, $error_object);
+    return $error_object;
+}
+
