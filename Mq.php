@@ -215,7 +215,7 @@ class Mq
         if (!$this->isLog && !$isLog) return;
         if (!is_string($message)) $message = \Invntrm\varDumpRet($message);
         if ($stage) $stage = "$stage:";
-        \Invntrm\_d(__CLASS__ . ':' . $method . ':' . $stage . $message);
+        \Invntrm\_d(__CLASS__ . ':' . $method . ':' . $stage . $message, false, 'mq');
     }
 
     //

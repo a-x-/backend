@@ -60,18 +60,41 @@ function true_array_map($callback, $array)
     return $resultArray;
 }
 
-function true_sort($valueOrigin)
-{
-    $value = $valueOrigin;
-    if (empty($value)) return [];
-    if (!is_array($value)) throw \Exception('true_sort accept arrays only');
-    sort($value);
-    return $value;
-}
+//function true_sort($valueOrigin)
+//{
+//    $value = $valueOrigin;
+//    if (empty($value)) return [];
+//    if (!is_array($value)) throw \Exception('true_sort accept arrays only');
+//    sort($value);
+//    return $value;
+//}
 
 function true_strtolowercase($string) {
     return mb_strtolower($string, 'UTF-8');
 }
+
+/**
+ * Capitalize (first letter of) string
+ * @param $string
+ *
+ * @return string
+ */
+function true_strtocap($string) {
+    return mb_uppercaseFirstLetter($string);
+}
+
+function true_sort($array,  $sort_flags = SORT_REGULAR) {
+    if (empty($array)) return [];
+    if (!is_array($array)) throw \Exception('true_sort accept arrays only');
+    $arrayCopy = array_merge([],$array);
+    sort($arrayCopy);
+    return $arrayCopy;
+}
+
+// Not true ...
+//function true_join($glue, $array) {
+//    return join($glue,true_sort($array, SORT_NUMERIC));
+//}
 
 /**
  * Parse post body string
@@ -361,8 +384,8 @@ function getDirList($path, $excludeMimes = array(), $isDebug = false)
  */
 function _d($text, $isTrace = false, $logName = 'check')
 {
-    if (!is_bool($isTrace)) {
-        $text    = [$text, $isTrace];
+    if (!is_bool($isTrace) && $logName == 'check') {
+        $logName = $isTrace;
         $isTrace = false;
     }
     file_put_contents(
@@ -792,11 +815,11 @@ function recursiveDegenerateArrOptimize($arr)
  *
  * @return mixed
  */
-function transliterateCyr($string)
+function transliterateCyr($string, $isBackward = false)
 {
     $roman    = array("Sch", "sch", 'Yo', 'Zh', 'Kh', 'Ts', 'Ch', 'Sh', 'Yu', 'ya', 'yo', 'zh', 'kh', 'ts', 'ch', 'sh', 'yu', 'ya', 'A', 'B', 'V', 'G', 'D', 'E', 'Z', 'I', 'Y', 'K', 'L', 'M', 'N', 'O', 'P', 'R', 'S', 'T', 'U', 'F', '', 'Y', '', 'E', 'a', 'b', 'v', 'g', 'd', 'e', 'z', 'i', 'y', 'k', 'l', 'm', 'n', 'o', 'p', 'r', 's', 't', 'u', 'f', '', 'y', '', 'e');
     $cyrillic = array("Щ", "щ", 'Ё', 'Ж', 'Х', 'Ц', 'Ч', 'Ш', 'Ю', 'я', 'ё', 'ж', 'х', 'ц', 'ч', 'ш', 'ю', 'я', 'А', 'Б', 'В', 'Г', 'Д', 'Е', 'З', 'И', 'Й', 'К', 'Л', 'М', 'Н', 'О', 'П', 'Р', 'С', 'Т', 'У', 'Ф', 'Ь', 'Ы', 'Ъ', 'Э', 'а', 'б', 'в', 'г', 'д', 'е', 'з', 'и', 'й', 'к', 'л', 'м', 'н', 'о', 'п', 'р', 'с', 'т', 'у', 'ф', 'ь', 'ы', 'ъ', 'э');
-    return str_replace($cyrillic, $roman, $string);
+    return $isBackward ? str_replace($roman, $cyrillic, $string) : str_replace($cyrillic, $roman, $string);
 }
 
 
