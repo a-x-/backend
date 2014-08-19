@@ -28,6 +28,11 @@ $_PUT = \Invntrm\get_parse_str(file_get_contents("php://input"));
 //
 //set_error_handler("exception_error_handler");
 
+function true_count($array)
+{
+    return (is_array($array)) ? count($array) : 0;
+}
+
 /**
  * @param $array array
  * @param $key   string|int
@@ -112,6 +117,28 @@ function get_parse_str($str)
     $outArr = [];
     parse_str($str, $outArr);
     return $outArr;
+}
+
+
+function exec_node ($scriptPath) {
+    global $C;
+    return exec("node {$C(__DIR__)}/../../../{$scriptPath}");
+}
+
+function exec_node_json ($scriptPath) {
+    return json_decode(exec_node($scriptPath), true);
+}
+
+/**
+ * Decode JSON file as associative array by its path
+ *
+ * @param $path
+ *
+ * @return mixed
+ */
+function json_decode_file($path)
+{
+    return json_decode(file_get_contents($path), true);
 }
 
 ///**
@@ -344,11 +371,6 @@ function get_require($phpFileName, $prefix = '', $isStrict = false, $params = []
         return [];
 }
 
-function true_count($array)
-{
-    return (is_array($array)) ? count($array) : 0;
-}
-
 function getCss($path, $prefix = null, $isStrict = false)
 {
     $path        = $prefix . preg_replace('!/$!', '', $path) . '.css';
@@ -393,7 +415,7 @@ function _d($text, $isTrace = false, $logName = 'check')
         $isTrace = false;
     }
     file_put_contents(
-        ROOT . "_logs/{$logName}.log",
+        __DIR__ . "/../../../_logs/{$logName}.log",
         "\n" . date(DATE_RSS) . '>'
         . \Invntrm\varDumpRet($text)
         . ($isTrace ? "\nTrace:\n" . \Invntrm\varDumpRet(debug_backtrace()) : ''),
@@ -426,18 +448,6 @@ function getFileInfo($filePath, $typeInfo = FILEINFO_MIME_TYPE)
     return $fInfoResult;
 }
 
-
-/**
- * Decode JSON file as associative array by its path
- *
- * @param $path
- *
- * @return mixed
- */
-function json_decode_file($path)
-{
-    return json_decode(file_get_contents($path), true);
-}
 
 /**
  * Вычислить значение многомерного массива, ключ которого задан строкой key1.key2.key3. ... keyN
