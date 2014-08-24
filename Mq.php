@@ -552,8 +552,8 @@ class AlxMq extends Mq
                 //                if (isset($part[5]) && $part[5] != '') $part[6] = $part[1] . '.' . ($part[6] == '' ? 'id' : $part[6]);
             } // if ($part2ToJoinTables_cnt) мультитабличная предобработка
 
-            $part[3] = preg_replace('!(?:^|[^a-z0-9_])COUNT(\s+[^\(]|$)!i', "COUNT($part[1].id)$1", $part[3]); //  Замена COUNT на COUNT(PrimaryTable.id)
-            $part[3] = preg_replace('!(?:^|[^a-z0-9_])COUNT\s*\(([^\.]*?)\)!i', "COUNT($1.id)", $part[3]); //      Замена COUNT(SomeTable) на COUNT(SomeTable.id)
+            $part[3] = preg_replace('!(?:^|\W)COUNT([^\(\w]|$)!i', "COUNT($part[1].id)$1", $part[3]); //  Замена COUNT на COUNT(PrimaryTable.id)
+            $part[3] = preg_replace('!(?:^|\W)COUNT\s*\(([^\.]*?)\)!i', "COUNT($1.id)", $part[3]); //      Замена COUNT(SomeTable) на COUNT(SomeTable.id)
             if (!isset($part[5])) $part[5] = "";
             if (trim($part[5])) if (preg_match('/\blimit\b/', $part[5])) {
                 $limit   = " $part[5] ";
