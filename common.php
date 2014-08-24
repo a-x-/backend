@@ -93,11 +93,15 @@ function true_count($array)
  *
  * @return mixed|string
  */
-function true_get($array, $key)
+function true_get($array, $key, $isStrict = true)
 {
-    if(!is_array($array))
-        throw new \Exception('$array must be array'.varDumpRet(['array'=>$array,'key'=>$key]));
-    return isset($array[$key]) ? $array[$key] : '';
+    if (!is_array($array)) {
+        if ($isStrict)
+            throw new \Exception('$array must be array' . varDumpRet(['array' => $array, 'key' => $key]));
+        else
+            return null;
+    }
+    return isset($array[$key]) ? $array[$key] : null;
 }
 
 /**
