@@ -27,6 +27,14 @@ $_PUT = \Invntrm\get_parse_str(file_get_contents("php://input"));
 //}
 //
 //set_error_handler("exception_error_handler");
+///**
+// * @param $className
+// */
+//function __autoload($className)
+//{
+//    require_once(SRV . "$className.php");
+//}
+
 
 // ---------------------------------------------------------------------------------------------------------------------
 // DATE TIME FUNCTIONS BLOCK
@@ -105,7 +113,8 @@ function true_count($array)
  * @param $array array
  * @param $key   string|int
  *
- * @return mixed|string
+ * @return string
+ * @throws \Exception
  */
 function true_get($array, $key, $isStrict = true)
 {
@@ -138,30 +147,24 @@ function true_array_map($callback, $array)
     return $resultArray;
 }
 
-//function true_sort($valueOrigin)
-//{
-//    $value = $valueOrigin;
-//    if (empty($value)) return [];
-//    if (!is_array($value)) throw \Exception('true_sort accept arrays only');
-//    sort($value);
-//    return $value;
-//}
-
 function true_strtolowercase($string) {
     return mb_strtolower($string, 'UTF-8');
 }
 
 /**
  * Capitalize (first letter of) string
+ *
  * @param $string
  *
  * @return string
  */
-function true_strtocap($string) {
+function true_strtocap($string)
+{
     return mb_uppercaseFirstLetter($string);
 }
 
-function true_sort($array,  $sort_flags = SORT_REGULAR) {
+function true_sort($array, $sort_flags = SORT_REGULAR)
+{
     if (empty($array)) return [];
     if (!is_array($array)) throw \Exception('true_sort accept arrays only');
     $arrayCopy = array_merge([],$array);
@@ -204,14 +207,6 @@ function json_decode_file($path)
 {
     return json_decode(file_get_contents($path), true);
 }
-
-///**
-// * @param $className
-// */
-//function __autoload($className)
-//{
-//    require_once(SRV . "$className.php");
-//}
 
 function getFNameStamp($fileMame, $isPathRewriteActive = false)
 {
@@ -1114,8 +1109,15 @@ class ExtendedInvalidArgumentException extends \InvalidArgumentException
     public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null)
     {
         if (!$description) $description = 'Нет описания';
+        if ($arguments) $description .= "\n\nАргументы:\n" . varDumpRet($arguments);
         parent::__construct($description, $numericCode, $previous);
         $this->codeExtended = ($codeExtended);
+    }
+
+    public function getTraceAsStringImproved()
+    {
+        $rawTrace = parent::getTraceAsString();
+        return preg_replace('!\((.*?)\):!', ':$1', $rawTrace);
     }
 
 }
@@ -1124,6 +1126,7 @@ class ExtendedInvalidArgumentException extends \InvalidArgumentException
 /**
  * Process API request exception
  * @todo add mappings
+ *
  * @param $e                      \Exception|\Invntrm\ExtendedException|\Invntrm\ExtendedInvalidArgumentException
  * @param $endpoint               string
  * @param $endpoint_message       string
@@ -1133,38 +1136,39 @@ class ExtendedInvalidArgumentException extends \InvalidArgumentException
  */
 function processException(\Exception $e, $endpoint = '', $endpoint_message = '', $endpoint_code_extended = '')
 {
-    \Invntrm\bugReport2($endpoint, ['Pre error record',$endpoint,$endpoint_message,$endpoint_code_extended,$e]);
+    \Invntrm\bugReport2($endpoint, ['Pre error record', $endpoint, $endpoint_message, $endpoint_code_extended, $e]);
 
     global $_PUT;
-    $method   = strtolower($_SERVER['REQUEST_METHOD']);
-    $e_str_error_id  = (method_exists($e, 'getCodeExtended') ? $e->getCodeExtended() : $e->getCode());
-    $e_str_message = $e->getMessage();
+    $method         = strtolower($_SERVER['REQUEST_METHOD']);
+    $e_str_error_id = (method_exists($e, 'getCodeExtended') ? $e->getCodeExtended() : $e->getCode());
+    $e_str_message  = $e->getMessage();
     //
     $str_error_id = $endpoint_code_extended ? $endpoint_code_extended : $e_str_error_id;
-    $str_message = $endpoint_message ? $endpoint_message : $e->getMessage();
-    $num_code = $e->getCode();
+    $str_message  = $endpoint_message ? $endpoint_message : $e->getMessage();
+    $num_code     = $e->getCode();
     $error_object = [
-        'error'         => $str_error_id,
-        'error_message' => $str_message,
-        'request_method'=> $method,
-        'request_string'=> $endpoint,
-        'query_params'  => $_REQUEST,
-        'payload_params'=> $_PUT
+        'error'          => $str_error_id,
+        'error_message'  => $str_message,
+        'request_method' => $method,
+        'request_string' => $endpoint,
+        'query_params'   => $_REQUEST,
+        'payload_params' => $_PUT
     ];
-    if(IS_DEBUG_ALX === true) {
-        $error_object = array_merge($error_object,[
-            'error_debug'   => [
-                'error'=>$e_str_error_id,
-                'error_message'=>$e_str_message,
-                'error_debug'=>$e
+    if (IS_DEBUG_ALX === true) {
+        $error_object = array_merge($error_object, [
+            'error_debug' => [
+                'error'         => $e_str_error_id,
+                'error_message' => $e_str_message,
+                'error_debug'   => $e
             ]
         ]);
     }
-    if(!empty($num_code)) {
-        $error_object = array_merge($error_object,[
+    if (!empty($num_code)) {
+        $error_object = array_merge($error_object, [
             'error_code' => $num_code
         ]);
     }
     \Invntrm\bugReport2($endpoint, $error_object);
     return $error_object;
 }
+
