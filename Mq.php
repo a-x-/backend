@@ -38,6 +38,9 @@ class Mq_Mode
  */
 class Mq
 {
+    /**
+     * @var mysqli
+     */
     protected $driver;
     protected $stmt;
     protected $isLog = false;
@@ -71,7 +74,10 @@ class Mq
         $this->isLog      = $isLog;
         $this->schemeName = $schemeName;
         if (!$schemeName) $schemeName = SCHEME_NAME_DEFAULT; // По умолчанию берётся из файла конфигурации
+//        mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
         $this->driver = new mysqli(); // Параметры устанавливаются из php-conf
+//        $this->driver->report_mode(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+//        $this->driver->options(MYSQLI_OPT_INT_AND_FLOAT_NATIVE, true);
         $this->driver->real_connect();
         if ($error = $this->getCheckDriverError()) {
             throw new \MqException('Initialization not success', $args, $error);
@@ -263,9 +269,9 @@ class Mq
         // Bind params
         if ($isArg) {
             array_unshift($params, $sigma); // Расширяем начальным элементом, содержащим сигнатуру
-            $tmp = array(); // Преобразуем строки в ссылки (требуется функции call_user_func_array)
+            $tmp = []; // Преобразуем строки в ссылки (требуется функции call_user_func_array)
             foreach ($params as $key => $value) $tmp[$key] = & $params[$key]; // ...
-            call_user_func_array(array($stmt, 'bind_param'), $tmp); // Запускаем $stmt->bind_param с праметрами из массива
+            call_user_func_array([$stmt, 'bind_param'], $tmp); // Запускаем $stmt->bind_param с праметрами из массива
         }
         //
         // Execute and get result
