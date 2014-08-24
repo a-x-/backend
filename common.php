@@ -27,6 +27,14 @@ $_PUT = \Invntrm\get_parse_str(file_get_contents("php://input"));
 //}
 //
 //set_error_handler("exception_error_handler");
+///**
+// * @param $className
+// */
+//function __autoload($className)
+//{
+//    require_once(SRV . "$className.php");
+//}
+
 
 function true_count($array)
 {
@@ -69,15 +77,6 @@ function true_array_map($callback, $array)
     return $resultArray;
 }
 
-//function true_sort($valueOrigin)
-//{
-//    $value = $valueOrigin;
-//    if (empty($value)) return [];
-//    if (!is_array($value)) throw \Exception('true_sort accept arrays only');
-//    sort($value);
-//    return $value;
-//}
-
 function true_strtolowercase($string)
 {
     return mb_strtolower($string, 'UTF-8');
@@ -103,11 +102,6 @@ function true_sort($array, $sort_flags = SORT_REGULAR)
     sort($arrayCopy);
     return $arrayCopy;
 }
-
-// Not true ...
-//function true_join($glue, $array) {
-//    return join($glue,true_sort($array, SORT_NUMERIC));
-//}
 
 /**
  * Parse post body string
@@ -146,14 +140,6 @@ function json_decode_file($path)
 {
     return json_decode(file_get_contents($path), true);
 }
-
-///**
-// * @param $className
-// */
-//function __autoload($className)
-//{
-//    require_once(SRV . "$className.php");
-//}
 
 function getFNameStamp($fileMame, $isPathRewriteActive = false)
 {
@@ -254,6 +240,14 @@ function buildPage($path, $params_origin = [])
     );
     $out = specifyTemplateExtended($out, $params, $paramMapping);
     if (isset($meta['base'])) { // if base tpl is declared
+        ///**
+        // * @param $className
+        // */
+        //function __autoload($className)
+        //{
+        //    require_once(SRV . "$className.php");
+        //}
+
         $params['content'] = $out;
         return buildPage($meta['base'], $params);
     }
