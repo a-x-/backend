@@ -87,7 +87,7 @@ function daysToSeconds($days) { return (int)($days * 24 * 3600); }
 function secondsToDays($days) { return (int)($days / (24 * 3600)); }
 
 /**
- * 
+ *
  * @example 12 Авг 2014
  */
 function getRuDate($time)
@@ -110,11 +110,13 @@ function true_count($array)
 }
 
 /**
- * @param $array array
- * @param $key   string|int
+ * @param      $array array
+ * @param      $key   string|int
  *
- * @return string
+ * @param bool $isStrict
+ *
  * @throws \Exception
+ * @return string
  */
 function true_get($array, $key, $isStrict = true)
 {
@@ -166,9 +168,9 @@ function true_strtocap($string)
 function true_sort($array, $sort_flags = SORT_REGULAR)
 {
     if (empty($array)) return [];
-    if (!is_array($array)) throw \Exception('true_sort accept arrays only');
+    if (!is_array($array)) throw new \Exception('true_sort accept arrays only');
     $arrayCopy = array_merge([],$array);
-    sort($arrayCopy);
+    sort($arrayCopy, $sort_flags);
     return $arrayCopy;
 }
 
@@ -480,6 +482,7 @@ function getLogPath () {
  */
 function _d($text, $isTrace = false, $logName = 'check')
 {
+    $log_path = getLogPath();
     if (!is_bool($isTrace) && $logName == 'check') {
         $logName = $isTrace;
         $isTrace = false;
@@ -688,7 +691,7 @@ function array_filter_bwListsByKeys($array, $whiteList = [], $blackList = [])
             ${$type2} [$item] = null;
         }
     }
-    return array_filter_bwLists($array, $whiteListKeyVal, $blackListKeyVal);
+    return array_filter_bwLists($array, $whiteList, $blackList);
 }
 
 
@@ -1006,6 +1009,7 @@ function format($msg, $vars)
 }
 
 /**
+ * @deprecated
  * @param \YandexMoney\Response\RequestPaymentResponse|string $resp
  *
  * @return string
@@ -1105,21 +1109,15 @@ class ExtendedInvalidArgumentException extends \InvalidArgumentException
      * @param string     $description  - string human readable description
      * @param \Exception $previous     [optional] - previous exception pointer
      * @param int        $numericCode  [optional] - number error identification
+     * @param null       $arguments [optional]
      */
-    public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null)
+    public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null, $arguments = null)
     {
         if (!$description) $description = 'Нет описания';
         if ($arguments) $description .= "\n\nАргументы:\n" . varDumpRet($arguments);
         parent::__construct($description, $numericCode, $previous);
         $this->codeExtended = ($codeExtended);
     }
-
-    public function getTraceAsStringImproved()
-    {
-        $rawTrace = parent::getTraceAsString();
-        return preg_replace('!\((.*?)\):!', ':$1', $rawTrace);
-    }
-
 }
 
 
