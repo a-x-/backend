@@ -39,6 +39,9 @@ class Mq_Mode
  */
 class Mq
 {
+    /**
+     * @var mysqli
+     */
     protected $driver;
     protected $stmt;
     protected $isLog = false;
@@ -77,7 +80,10 @@ class Mq
         $this->isLog      = $isLog;
         $this->schemeName = $schemeName;
         if (!$schemeName) $schemeName = SCHEME_NAME_DEFAULT; // По умолчанию берётся из файла конфигурации
+//        mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
         $this->driver = new mysqli(); // Параметры устанавливаются из php-conf
+//        $this->driver->report_mode(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+//        $this->driver->options(MYSQLI_OPT_INT_AND_FLOAT_NATIVE, true);
         $this->driver->real_connect();
         if ($error = $this->getCheckDriverError()) {
             throw new \MqException('initialization_failed', $args, $error, $this);
