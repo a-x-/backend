@@ -93,11 +93,10 @@ function secondsToDays($days) { return (int)($days / (24 * 3600)); }
 function getRuDate($time)
 {
     date_default_timezone_set("Europe/Moscow");
-    setlocale(LC_ALL,"ru_RU.UTF-8"); // must be installed by `dpkg-reconfigure locales`
+    setlocale(LC_ALL, "ru_RU.UTF-8"); // must be installed by `dpkg-reconfigure locales`
     // See http://php.net/manual/ru/function.strftime.php
     return strftime("%d %b %Y", $time);
 }
-
 
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -149,7 +148,8 @@ function true_array_map($callback, $array)
     return $resultArray;
 }
 
-function true_strtolowercase($string) {
+function true_strtolowercase($string)
+{
     return mb_strtolower($string, 'UTF-8');
 }
 
@@ -169,7 +169,7 @@ function true_sort($array, $sort_flags = SORT_REGULAR)
 {
     if (empty($array)) return [];
     if (!is_array($array)) throw new \Exception('true_sort accept arrays only');
-    $arrayCopy = array_merge([],$array);
+    $arrayCopy = array_merge([], $array);
     sort($arrayCopy, $sort_flags);
     return $arrayCopy;
 }
@@ -189,12 +189,14 @@ function get_parse_str($str)
 }
 
 
-function exec_node ($scriptPath) {
+function exec_node($scriptPath)
+{
     global $C;
     return exec("node {$C(__DIR__)}/../../../{$scriptPath}");
 }
 
-function exec_node_json ($scriptPath) {
+function exec_node_json($scriptPath)
+{
     return json_decode(exec_node($scriptPath), true);
 }
 
@@ -467,8 +469,9 @@ function getDirList($path, $excludeMimes = [], $isDebug = false)
 /**
  * @return string
  */
-function getLogPath () {
-    $mode = (IS_DEBUG_ALX === true) ? 'dev': 'prod';
+function getLogPath()
+{
+    $mode     = (IS_DEBUG_ALX === true) ? 'dev' : 'prod';
     $log_path = "/var/www/logs/{$_SERVER['SERVER_NAME']}/{$mode}_logs/";
     exec("mkdir -p {$log_path}");
     return $log_path;
@@ -476,6 +479,7 @@ function getLogPath () {
 
 /**
  * version 2
+ *
  * @param        $text
  * @param bool   $isTrace
  * @param string $logName
@@ -498,13 +502,14 @@ function _d($text, $isTrace = false, $logName = 'check')
 
 /**
  * version 2
+ *
  * @param $type
  * @param $text
  */
 function bugReport2($type, $text)
 {
     $log_path = getLogPath();
-    file_put_contents($log_path.'/error.log', date(DATE_RSS) . '>' . $type . '>' . varDumpRet($text) . "\n\n", FILE_APPEND);
+    file_put_contents($log_path . '/error.log', date(DATE_RSS) . '>' . $type . '>' . varDumpRet($text) . "\n\n", FILE_APPEND);
 }
 
 /**
@@ -909,7 +914,9 @@ function recursiveDegenerateArrOptimize($arr, $isDebug = false)
 /**
  * @link https://gist.github.com/vindia/1476814
  *
- * @param $string
+ * @param      $string
+ *
+ * @param bool $isBackward
  *
  * @return mixed
  */
@@ -1008,50 +1015,51 @@ function format($msg, $vars)
     );
 }
 
-/**
- * @deprecated
- * @param \YandexMoney\Response\RequestPaymentResponse|string $resp
- *
- * @return string
- */
-function makeErrorCode($resp)
-{
-    $error = (is_string($resp) ? $resp : $resp->getError());
-    $error = '%MESSAGE_' . strtoupper(preg_replace('/\s+/', '_', $error)) . '%';
-    return $error;
-}
-
-/**
- * @deprecated
- * Class Exception
- * @package Invntrm
- */
-class Exception extends \Exception
-{
-    protected $codeExtended;
-
-    /**
-     * @return string
-     */
-    public function getCodeExtended()
-    {
-        return $this->codeExtended;
-    }
-
-    /**
-     * @param string     $codeExtended
-     * @param string     $description
-     * @param \Exception $previous    [optional]
-     * @param int        $numericCode [optional]
-     */
-    public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null)
-    {
-        if (!$description) $description = 'нет описания';
-        parent::__construct($description, $numericCode, $previous);
-        $this->codeExtended = makeErrorCode($codeExtended);
-    }
-
-}
+///**
+// * @deprecated
+// *
+// * @param \YandexMoney\Response\RequestPaymentResponse|string $resp
+// *
+// * @return string
+// */
+//function makeErrorCode($resp)
+//{
+//    $error = (is_string($resp) ? $resp : $resp->getError());
+//    $error = '%MESSAGE_' . strtoupper(preg_replace('/\s+/', '_', $error)) . '%';
+//    return $error;
+//}
+//
+///**
+// * @deprecated
+// * Class Exception
+// * @package Invntrm
+// */
+//class Exception extends \Exception
+//{
+//    protected $codeExtended;
+//
+//    /**
+//     * @return string
+//     */
+//    public function getCodeExtended()
+//    {
+//        return $this->codeExtended;
+//    }
+//
+//    /**
+//     * @param string     $codeExtended
+//     * @param string     $description
+//     * @param \Exception $previous    [optional]
+//     * @param int        $numericCode [optional]
+//     */
+//    public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null)
+//    {
+//        if (!$description) $description = 'нет описания';
+//        parent::__construct($description, $numericCode, $previous);
+//        $this->codeExtended = makeErrorCode($codeExtended);
+//    }
+//
+//}
 
 class ExtendedException extends \Exception
 {
@@ -1109,7 +1117,7 @@ class ExtendedInvalidArgumentException extends \InvalidArgumentException
      * @param string     $description  - string human readable description
      * @param \Exception $previous     [optional] - previous exception pointer
      * @param int        $numericCode  [optional] - number error identification
-     * @param null       $arguments [optional]
+     * @param null       $arguments    [optional]
      */
     public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null, $arguments = null)
     {

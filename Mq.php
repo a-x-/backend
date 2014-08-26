@@ -55,6 +55,15 @@ class Mq
         return $this->req;
     }
 
+    public function getInitialArgs()
+    {
+        return $this->params;
+    }
+
+    public function isLoggingActive () {
+        return $this->isLog;
+    }
+
     /**
      * Construct
      *
@@ -80,10 +89,10 @@ class Mq
         $this->isLog      = $isLog;
         $this->schemeName = $schemeName;
         if (!$schemeName) $schemeName = SCHEME_NAME_DEFAULT; // По умолчанию берётся из файла конфигурации
-//        mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+        //        mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
         $this->driver = new mysqli(); // Параметры устанавливаются из php-conf
-//        $this->driver->report_mode(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-//        $this->driver->options(MYSQLI_OPT_INT_AND_FLOAT_NATIVE, true);
+        //        $this->driver->report_mode(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+        //        $this->driver->options(MYSQLI_OPT_INT_AND_FLOAT_NATIVE, true);
         $this->driver->real_connect();
         if ($error = $this->getCheckDriverError()) {
             throw new \MqException('initialization_failed', $args, $error, $this);
@@ -200,7 +209,7 @@ class Mq
         $this->params = $params;
         if (!$stmt) throw new \MqInvalidArgumentException('stmt_is_not_specified', $stmt, $this);
         if (!is_array($params) && $params !== null) $params = [$params];
-        $args  = ['req' => $this->req, 'sigma' => $sigma, 'params' => $params];
+        $args   = ['req' => $this->req, 'sigma' => $sigma, 'params' => $params];
         $counts = [
             'params'       => \Invntrm\true_count($params),
             'sigma'        => strlen($sigma),
@@ -225,18 +234,18 @@ class Mq
         if (!$isExecuteSuccess)
             throw new MqException('execute_fault', $args, $this->getCheckDriverError(), $this);
         if (preg_match('!^\s*DELETE!i', $this->req)) {
-            $result = !!$stmt->affected_rows;
+            $result          = !!$stmt->affected_rows;
             $isDeleteRequest = true;
         }
         else {
-            $result = $stmt->get_result();
+            $result          = $stmt->get_result();
             $isDeleteRequest = false;
         }
         // fix: result may be not present. it's normal
         // if (!$result) throw new MqException('Get iterative fault', $args, $this->getCheckDriverError());
         $this->logDebug(__METHOD__, ['stmt' => $stmt, 'result' => $result], $isLog);
         if (!$result || !$result->num_rows)
-            $this->logDebug(__METHOD__, $isDeleteRequest?'[WARN Nothing delete...]':'[WARN] Result is empty!', $isLog);
+            $this->logDebug(__METHOD__, $isDeleteRequest ? '[WARN Nothing delete...]' : '[WARN] Result is empty!', $isLog);
         return $result;
     }
 
@@ -387,11 +396,6 @@ class Mq
         return $this->driver->real_escape_string($str);
     }
 
-    public function getInitialArgs()
-    {
-        return $this->params;
-    }
-
 
     /**
      * Record debug log
@@ -400,16 +404,22 @@ class Mq
      * @param string $message
      * @param        $isLog
      * @param string $stage
+     *
+     * @internal param \Mq $self
      */
     protected function logDebug($method, $message, $isLog, $stage = '')
     {
+        /**
+         * Mq
+         */
+        $self = $this;
         if (!$this->isLog && !$isLog) return;
         if (!is_string($message)) $message = \Invntrm\varDumpRet($message);
         if ($stage) $stage = "$stage:";
         \Invntrm\_d(
             __CLASS__ . ':' . $method . ':' . $stage . $message
-                . "\nInitial request string:\n" . $self->getInitialRequest()
-                . "\nInitial args:\n" . \Invntrm\varDumpRet($self->getInitialArgs()),
+            . "\nInitial request string:\n" . $self->getInitialRequest()
+            . "\nInitial args:\n" . \Invntrm\varDumpRet($self->getInitialArgs()),
             IS_DEBUG_ALX === true,
             'mq'
         );
@@ -422,7 +432,7 @@ class Mq
  */
 class AlxMq extends Mq
 {
-    protected $isLog;
+//    protected $isLog = false;
 
     public function __construct($schemeName = '', $isLog = false)
     {
@@ -517,7 +527,7 @@ class AlxMq extends Mq
              * [1]--primary_table [2]--condition [3]--aim [4]-- order_col, order_dir  [5]--group
              */
 
-            $part[2] = $part2Preprocessor(\Invntrm\true_get($part,2));
+            $part[2] = $part2Preprocessor(\Invntrm\true_get($part, 2));
             $part[3] = isset($part[3]) ? str_replace('>', ' AS ', $part[3]) : '';
             preg_match_all('!ref:([a-z_]+)!im', $part[2] . ',', $additionRefTables, PREG_PATTERN_ORDER);
             $part[2] = preg_replace('!ref:([a-z_]+)!im', "", $part[2]);
@@ -682,16 +692,16 @@ class MqException extends \Invntrm\ExtendedException
     private $self;
 
     /**
-     * @param string   $codeExtended
-     * @param array    $args
-     * @param string   $driverError
+     * @param string     $codeExtended
+     * @param array      $args
+     * @param string     $driverError
      * @param \Mq|\AlxMq $self
      */
     public function __construct($codeExtended, $args, $driverError, $self)
     {
         //
         // Get short message if driver error present or debug mode activated
-        $message = ($driverError && !$self->isLog) ? $driverError :
+        $message = ($driverError && !$self->isLoggingActive()) ? $driverError :
             "Args:\n" . \Invntrm\varDumpRet($args)
             . "\nDriverError:\n" . \Invntrm\varDumpRet($driverError)
             . "\nInitial request string:\n" . $self->getInitialRequest()
@@ -712,7 +722,7 @@ class MqInvalidArgumentException extends \Invntrm\ExtendedInvalidArgumentExcepti
     /**
      * @param string       $codeExtended
      * @param string|array $params
-     * @param \Mq|\AlxMq          $self
+     * @param \Mq|\AlxMq   $self
      */
     public function __construct($codeExtended, $params, $self)
     {
