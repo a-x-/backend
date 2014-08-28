@@ -189,10 +189,64 @@ function get_parse_str($str)
 }
 
 
+function get_preg_match($pattern, $string)
+{
+    preg_match($pattern, $string, $matches);
+    array_shift($matches);
+    return $matches;
+}
+
+/**
+ * Motivation: keep RegExp in valid form. PhpStorm regexp pad can only valid clear regexp process
+ * @example true_get_preg_match('^/', '../gfd/')
+ *
+ * @param        $pattern
+ * @param        $subject
+ * @param        $affix
+ * @param string $delimiter
+ *
+ * @return mixed
+ */
+function true_get_preg_match($pattern, $subject, $affix = '', $delimiter = '!') {
+    return get_preg_match("{$delimiter}{$pattern}{$delimiter}{$affix}", $subject);
+}
+function true_is_preg_match($pattern, $subject, $affix = '', $delimiter = '!') {
+    return preg_match("{$delimiter}{$pattern}{$delimiter}{$affix}", $subject);
+}
+
+/**
+ * Get string with line breaks instead of array of lines
+ * @param $script
+ *
+ * @return string
+ */
+function true_exec($script) {
+    exec($script, $out);
+    return join("\n",$out);
+}
+
+/**
+ * @param $scriptPath
+ *
+ * @return string
+ */
 function exec_node($scriptPath)
 {
     global $C;
-    return exec("node {$C(__DIR__)}/../../../{$scriptPath}");
+    $paramsCollection = func_get_args();
+    $params = call_user_func(function () use ($paramsCollection) {
+        array_shift($paramsCollection);
+        $paramsStr = '';
+        foreach ($paramsCollection as $argument) {
+            $paramsStr .= ' ' . "'".str_replace("'","\\'",(
+                is_string($argument)
+                    ? $argument
+                    : json_encode($argument))
+            )."'";
+        }
+        return $paramsStr;
+    });
+    return true_exec("node {$C(__DIR__)}/../../../{$scriptPath}{$params}");
 }
 
 function exec_node_json($scriptPath)
@@ -298,7 +352,7 @@ function buildPage($path, $params_origin = [])
     }
     //
     // Replace recursive call placeholders
-    $out = preg_replace_callback('/@([a-z_\-\/]+?)@/i',
+    $out = preg_replace_callback('!'.'@([a-z_\-/\.]+?)@'.'!i',
         function ($matches) use ($params, $pageDir, $defaultPrefix) {
             $match = $matches[1];
             if (!$pageDir || preg_match('!^/!', $match)) // if pageDir isn't set OR @placeholder@ start with /, than decide match absolute
@@ -309,10 +363,11 @@ function buildPage($path, $params_origin = [])
         },
         $out
     );
-    $out = specifyTemplateExtended($out, $params, $paramMapping);
+    $out = specifyTemplateExtended($out, $params, $paramMapping, $pageDir);
     if (isset($meta['base'])) { // if base tpl is declared
         $params['content'] = $out;
-        return buildPage($meta['base'], $params);
+        $basePath = true_is_preg_match('^/',$meta['base']) ? $meta['base'] : "{$pageDir}/{$meta['base']}";
+        return buildPage($basePath, $params);
     }
     else
         return $out;
@@ -703,13 +758,6 @@ function array_filter_bwListsByKeys($array, $whiteList = [], $blackList = [])
 function array_subtraction_key($arr1, $arr2)
 {
     return array_diff_key($arr1, array_intersect_key($arr1, $arr2));
-}
-
-function get_preg_match($pattern, $string)
-{
-    preg_match($pattern, $string, $matches);
-    array_shift($matches);
-    return $matches;
 }
 
 /**
