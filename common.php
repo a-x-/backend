@@ -240,14 +240,6 @@ function buildPage($path, $params_origin = [])
     );
     $out = specifyTemplateExtended($out, $params, $paramMapping);
     if (isset($meta['base'])) { // if base tpl is declared
-        ///**
-        // * @param $className
-        // */
-        //function __autoload($className)
-        //{
-        //    require_once(SRV . "$className.php");
-        //}
-
         $params['content'] = $out;
         return buildPage($meta['base'], $params);
     }
