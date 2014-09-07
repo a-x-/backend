@@ -691,7 +691,7 @@ function hruDump($array, $level = 0)
 function mailDump($data, $to, $consts, $theme)
 {
     $message = hruDump($data);
-    mailProject($message, $to, '', $consts, $theme);
+    return mailProject($message, $to, '', $consts, $theme);
 }
 
 /**
