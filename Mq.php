@@ -200,7 +200,7 @@ class Mq
      */
     protected function getPreprocessedReq($req)
     {
-        $req = preg_replace_callback('/^([a-z\.\-_]+)\.sql$/i', function ($matches) {
+        $req = preg_replace_callback('/^([a-z0-9\.\-_]+)\.sql$/i', function ($matches) {
             return file_get_contents(__DIR__ . "/../../../_data/_sql/$matches[1].sql"); // ${ROOT}/_data/_sql -- sql fragments place
         }, $req);
         $req = preg_replace('!\[(?:SCHEME_NAME|TABLE_SCHEMA)\]!', '"' . $this->schemeName . '"', $req); // Название "базы данных" (в терминах mySQL)
@@ -469,31 +469,31 @@ class AlxMq extends Mq
         $reqArr = preg_split('!;\s*!', $reqLine); //                                                                Разбивка на отдельные запросы, разделённые символом ';'
         foreach ($reqArr as $req) { // Проход по отдельным alx-запросам
             if (preg_match('!:d$!', $req)) { //                                                                              * Требуется запрос удаления
-                preg_match('!^([a-z_]+)\[\s*(.*)\s*\]:d$!i', $req, $part); //                                           Разбить alx-запрос на простые составляющие (для запроса удаления)
+                preg_match('!^([a-z0-9_]+)\[\s*(.*)\s*\]:d$!i', $req, $part); //                                           Разбить alx-запрос на простые составляющие (для запроса удаления)
 
                 return "DELETE FROM $part[1] WHERE $part[2];";
             }
-            if (preg_match('!^[a-z_]+\[.*\]>$!i', $req)) { //                                                                * Требуется запрос вставки
-                preg_match('!^([a-z_]+)\[(.*)\]>\s*$!i', $req, $part); //                                           Разбить alx-запрос на простые составляющие (для запроса вставки)
+            if (preg_match('!^[a-z0-9_]+\[.*\]>$!i', $req)) { //                                                                * Требуется запрос вставки
+                preg_match('!^([a-z0-9_]+)\[(.*)\]>\s*$!i', $req, $part); //                                           Разбить alx-запрос на простые составляющие (для запроса вставки)
                 $table   = $part[1];
                 $part[2] = $part2Preprocessor($part[2]);
                 return "INSERT INTO $table SET $part[2]";
             }
-            preg_match('/^([a-z_]+)\[\s*(.*)\s*\]\?([a-z0-9_,`\.\'=*? >\(\)]+)(?:\|((?:\s*(?:\.:|:\.)\s*[^\|]+?)+))?(?:\|(.*))?\s*$/i', $req, $part); //           Разбить alx-запрос на составляющие
+            preg_match('/^([a-z0-9_]+)\[\s*(.*)\s*\]\?([a-z0-9_,`\.\'=*? >\(\)]+)(?:\|((?:\s*(?:\.:|:\.)\s*[^\|]+?)+))?(?:\|(.*))?\s*$/i', $req, $part); //           Разбить alx-запрос на составляющие
             /*
              * [1]--primary_table [2]--condition [3]--aim [4]-- order_col, order_dir  [5]--group
              */
 
             $part[2] = $part2Preprocessor(@$part[2]);
             $part[3] = isset($part[3]) ? str_replace('>', ' AS ', $part[3]) : '';
-            preg_match_all('!ref:([a-z_]+)!im', $part[2] . ',', $additionRefTables, PREG_PATTERN_ORDER);
-            $part[2] = preg_replace('!ref:([a-z_]+)!im', "", $part[2]);
+            preg_match_all('!ref:([a-z0-9_]+)!im', $part[2] . ',', $additionRefTables, PREG_PATTERN_ORDER);
+            $part[2] = preg_replace('!ref:([a-z0-9_]+)!im', "", $part[2]);
             $part[2] = str_replace('&&', ' AND ', $part[2]);
 
             $part[1] = $part1 = isset($part[1]) ? $part[1] : '';
 
-            preg_match_all('!([a-z_]+)\.!i', $part[2], $part2ToJoinTables1, PREG_PATTERN_ORDER);
-            preg_match_all('!([a-z_]+)\.|count\s*\(([a-z_]+)\)!i', $part[3], $part2ToJoinTables2, PREG_PATTERN_ORDER);
+            preg_match_all('!([a-z0-9_]+)\.!i', $part[2], $part2ToJoinTables1, PREG_PATTERN_ORDER);
+            preg_match_all('!([a-z0-9_]+)\.|count\s*\(([a-z0-9_]+)\)!i', $part[3], $part2ToJoinTables2, PREG_PATTERN_ORDER);
 
             $part2ToJoinTables = array_merge($part2ToJoinTables1[1], $part2ToJoinTables2[1], $part2ToJoinTables2[2], $additionRefTables[1]);
             $part2ToJoinTables = array_unique(array_filter($part2ToJoinTables, function ($el) {
