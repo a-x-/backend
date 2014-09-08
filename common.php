@@ -395,19 +395,35 @@ function getDirList($path, $excludeMimes = array(), $isDebug = false)
         return false;
 }
 
+
 /**
- * @param      $text
- * @param bool $isTrace
- * @param      $text
+ * @return string
+ */
+function getLogPath()
+{
+    $mode     = (IS_DEBUG_ALX === true) ? 'dev' : 'prod';
+    $server_name = preg_replace('!^testdev\.!', '', $_SERVER['SERVER_NAME']);
+    $log_path = "/var/www/logs/{$server_name}/{$mode}_logs/";
+    exec("mkdir -p {$log_path}");
+    return $log_path;
+}
+
+/**
+ * version 2
+ *
+ * @param        $text
+ * @param bool   $isTrace
+ * @param string $logName
  */
 function _d($text, $isTrace = false, $logName = 'check')
 {
+    $log_path = getLogPath();
     if (!is_bool($isTrace) && $logName == 'check') {
         $logName = $isTrace;
         $isTrace = false;
     }
     file_put_contents(
-        __DIR__ . "/../../../_logs/{$logName}.log",
+        "{$log_path}/{$logName}.log",
         "\n" . date(DATE_RSS) . '>'
         . \Invntrm\varDumpRet($text)
         . ($isTrace ? "\nTrace:\n" . \Invntrm\varDumpRet(debug_backtrace()) : ''),
@@ -416,12 +432,15 @@ function _d($text, $isTrace = false, $logName = 'check')
 }
 
 /**
+ * version 2
+ *
  * @param $type
  * @param $text
  */
-function bugReport2($type, $text, $logName = 'error')
+function bugReport2($type, $text)
 {
-    file_put_contents(__DIR__ . "/../../../_logs/{$logName}.log", "\n" . date(DATE_RSS) . '>' . $type . '>' . varDumpRet($text), FILE_APPEND);
+    $log_path = getLogPath();
+    file_put_contents($log_path . '/error.log', date(DATE_RSS) . '>' . $type . '>' . varDumpRet($text) . "\n\n", FILE_APPEND);
 }
 
 /**
@@ -543,15 +562,26 @@ function xml2array($xmlObject, $out = array())
  */
 function varDumpRet($var, $isPretty = false)
 {
-    $out = print_r($var, true);
     if ($isPretty) {
+        $out = print_r($var, true);
         $out = preg_replace('!\n!', ' ', $out);
         $out = preg_replace('!\[(.*?)\]!', '"$1"', $out);
         $out = preg_replace('!Array\s*\((.*)\)!i', '[$1]', $out);
     }
+    else {
+        ob_start();
+        var_dump($var);
+        return ob_get_clean();
+    }
     return $out;
 }
 
+/**
+ * @deprecated by prent_r($var, true)
+ * @param $var
+ *
+ * @return string
+ */
 function printRRet($var)
 {
     ob_start();
@@ -603,7 +633,7 @@ function array_filter_bwListsByKeys($array, $whiteList = [], $blackList = [])
             ${$type2} [$item] = null;
         }
     }
-    return array_filter_bwLists($array, $whiteListKeyVal, $blackListKeyVal);
+    return array_filter_bwLists($array, $whiteListKeyVal, $blackListKeyVal); // DONT TOUCH KeyVal!!!
 }
 
 
@@ -708,8 +738,9 @@ function mailDump($data, $to, $consts, $theme)
 function mailProject($message, $to, $fromName, $consts, $theme)
 {
     $fromName = transliterateCyr($fromName);
-    $fromName = $fromName ? "$fromName (via site)" : $consts['PROJECT_NAME_STUB'];
-    $from     = "$fromName <{$consts['MAILER_EMAIL']}>";
+    $fromName = $fromName ? "$fromName (via site)" : true_get($consts, 'PROJECT_NAME_STUB');
+    $mailer = true_get($consts, 'MAILER_EMAIL');
+    $from     = "$fromName <{$mailer}>";
     //
     // MIME message type
     $headers
@@ -748,7 +779,7 @@ function mailProject($message, $to, $fromName, $consts, $theme)
  */
 function generateStrongPassword($length = 9, $add_dashes = false, $available_sets = 'luds')
 {
-    $sets = array();
+    $sets = [];
     if (strpos($available_sets, 'l') !== false)
         $sets[] = 'abcdefghjkmnpqrstuvwxyz';
     if (strpos($available_sets, 'u') !== false)
@@ -823,8 +854,8 @@ function recursiveDegenerateArrOptimize($arr)
  */
 function transliterateCyr($string, $isBackward = false)
 {
-    $roman    = array("Sch", "sch", 'Yo', 'Zh', 'Kh', 'Ts', 'Ch', 'Sh', 'Yu', 'ya', 'yo', 'zh', 'kh', 'ts', 'ch', 'sh', 'yu', 'ya', 'A', 'B', 'V', 'G', 'D', 'E', 'Z', 'I', 'Y', 'K', 'L', 'M', 'N', 'O', 'P', 'R', 'S', 'T', 'U', 'F', '', 'Y', '', 'E', 'a', 'b', 'v', 'g', 'd', 'e', 'z', 'i', 'y', 'k', 'l', 'm', 'n', 'o', 'p', 'r', 's', 't', 'u', 'f', '', 'y', '', 'e');
-    $cyrillic = array("Щ", "щ", 'Ё', 'Ж', 'Х', 'Ц', 'Ч', 'Ш', 'Ю', 'я', 'ё', 'ж', 'х', 'ц', 'ч', 'ш', 'ю', 'я', 'А', 'Б', 'В', 'Г', 'Д', 'Е', 'З', 'И', 'Й', 'К', 'Л', 'М', 'Н', 'О', 'П', 'Р', 'С', 'Т', 'У', 'Ф', 'Ь', 'Ы', 'Ъ', 'Э', 'а', 'б', 'в', 'г', 'д', 'е', 'з', 'и', 'й', 'к', 'л', 'м', 'н', 'о', 'п', 'р', 'с', 'т', 'у', 'ф', 'ь', 'ы', 'ъ', 'э');
+    $roman    = ["Sch", "sch", 'Yo', 'Zh', 'Kh', 'Ts', 'Ch', 'Sh', 'Yu', 'ya', 'yo', 'zh', 'kh', 'ts', 'ch', 'sh', 'yu', 'ya', 'A', 'B', 'V', 'G', 'D', 'E', 'Z', 'I', 'Y', 'K', 'L', 'M', 'N', 'O', 'P', 'R', 'S', 'T', 'U', 'F', '', 'Y', '', 'E', 'a', 'b', 'v', 'g', 'd', 'e', 'z', 'i', 'y', 'k', 'l', 'm', 'n', 'o', 'p', 'r', 's', 't', 'u', 'f', '', 'y', '', 'e'];
+    $cyrillic = ["Щ", "щ", 'Ё', 'Ж', 'Х', 'Ц', 'Ч', 'Ш', 'Ю', 'я', 'ё', 'ж', 'х', 'ц', 'ч', 'ш', 'ю', 'я', 'А', 'Б', 'В', 'Г', 'Д', 'Е', 'З', 'И', 'Й', 'К', 'Л', 'М', 'Н', 'О', 'П', 'Р', 'С', 'Т', 'У', 'Ф', 'Ь', 'Ы', 'Ъ', 'Э', 'а', 'б', 'в', 'г', 'д', 'е', 'з', 'и', 'й', 'к', 'л', 'м', 'н', 'о', 'п', 'р', 'с', 'т', 'у', 'ф', 'ь', 'ы', 'ъ', 'э'];
     return $isBackward ? str_replace($roman, $cyrillic, $string) : str_replace($cyrillic, $roman, $string);
 }
 
