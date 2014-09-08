@@ -527,7 +527,8 @@ function getDirList($path, $excludeMimes = [], $isDebug = false)
 function getLogPath()
 {
     $mode     = (IS_DEBUG_ALX === true) ? 'dev' : 'prod';
-    $log_path = "/var/www/logs/{$_SERVER['SERVER_NAME']}/{$mode}_logs/";
+    $server_name = preg_replace('!^testdev\.!', '', $_SERVER['SERVER_NAME']);
+    $log_path = "/var/www/logs/{$server_name}/{$mode}_logs/";
     exec("mkdir -p {$log_path}");
     return $log_path;
 }
@@ -751,7 +752,7 @@ function array_filter_bwListsByKeys($array, $whiteList = [], $blackList = [])
             ${$type2} [$item] = null;
         }
     }
-    return array_filter_bwLists($array, $whiteList, $blackList);
+    return array_filter_bwLists($array, $whiteListKeyVal, $blackListKeyVal); // DONT TOUCH KeyVal!!!
 }
 
 
