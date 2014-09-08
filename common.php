@@ -818,6 +818,7 @@ function generateStrongPassword($length = 9, $add_dashes = false, $available_set
 
 /**
  * Simplify array structure
+ * In lo-dash it has different name: flatten
  * @example [] -> null
  * @example [[]] -> null
  * @example [[1]] -> 1
@@ -905,6 +906,7 @@ function decrypt_data($key, $iv, $text)
  * - You can name your parameters,
  * - You can mix the three other points.
  *
+ * Note, than there is internal php string {} templating constructions
  *
  * As PHP doesn't really have a proper alternative to str.format in Python,
  * I decided to implement my very simple own which as most of the basic functionnalitites of the Python's one.
@@ -949,6 +951,7 @@ function format($msg, $vars)
 
 
 /**
+ * @deprecated
  * @param \YandexMoney\Response\RequestPaymentResponse|string $resp
  *
  * @return string
