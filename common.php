@@ -207,22 +207,27 @@ function get_preg_match($pattern, $string)
  *
  * @return mixed
  */
-function true_get_preg_match($pattern, $subject, $affix = '', $delimiter = '!') {
+function true_get_preg_match($pattern, $subject, $affix = '', $delimiter = '!')
+{
     return get_preg_match("{$delimiter}{$pattern}{$delimiter}{$affix}", $subject);
 }
-function true_is_preg_match($pattern, $subject, $affix = '', $delimiter = '!') {
+
+function true_is_preg_match($pattern, $subject, $affix = '', $delimiter = '!')
+{
     return preg_match("{$delimiter}{$pattern}{$delimiter}{$affix}", $subject);
 }
 
 /**
  * Get string with line breaks instead of array of lines
+ *
  * @param $script
  *
  * @return string
  */
-function true_exec($script) {
+function true_exec($script)
+{
     exec($script, $out);
-    return join("\n",$out);
+    return join("\n", $out);
 }
 
 /**
@@ -233,7 +238,7 @@ function true_exec($script) {
 function exec_node($scriptPath, $paramsOrigin)
 {
     global $C;
-    if(!$paramsOrigin) {
+    if (!$paramsOrigin) {
         $paramsCollection = func_get_args();
         array_shift($paramsCollection);
     }
@@ -242,15 +247,15 @@ function exec_node($scriptPath, $paramsOrigin)
     $params = call_user_func(function () use ($paramsCollection) {
         $paramsStr = '';
         foreach ($paramsCollection as $argument) {
-            $paramsStr .= ' ' . "'".str_replace("'","\\'",(
-                is_string($argument)
-                    ? $argument
-                    : json_encode($argument))
-            )."'";
+            $paramsStr .= ' ' . "'" . str_replace("'", "\\'", (
+                    is_string($argument)
+                        ? $argument
+                        : json_encode($argument))
+                ) . "'";
         }
         return $paramsStr;
     });
-//    _d(['ex node', "node {$C(__DIR__)}/../../../{$scriptPath}{$params}"]);
+    //    _d(['ex node', "node {$C(__DIR__)}/../../../{$scriptPath}{$params}"]);
     return true_exec("node {$C(__DIR__)}/../../../{$scriptPath}{$params}");
 }
 
@@ -258,7 +263,7 @@ function exec_node_json($scriptPath)
 {
     $paramsCollection = func_get_args();
     array_shift($paramsCollection);
-//    _d(['enj,1',$paramsCollection, $scriptPath]);
+    //    _d(['enj,1',$paramsCollection, $scriptPath]);
     return json_decode(exec_node($scriptPath, $paramsCollection), true);
 }
 
@@ -269,9 +274,10 @@ function exec_node_json($scriptPath)
  *
  * @return mixed
  */
-function json_decode_file($path)
+function json_decode_file($path, $is_root = false)
 {
-    return json_decode(file_get_contents($path), true);
+    $path_prefix = $is_root ? __DIR__ . '/../../../' : '';
+    return json_decode(file_get_contents($path_prefix . $path), true);
 }
 
 function getFNameStamp($fileMame, $isPathRewriteActive = false)
@@ -318,15 +324,27 @@ function parseMetaPage($str)
     return [$meta, $body,];
 }
 
+/**
+ * @version 2 no backward compatible
+ *
+ * @param       $path
+ * @param array $params_origin
+ *
+ * @return mixed|string
+ */
 function buildPage($path, $params_origin = [])
 {
-    if (!$path) {
+    $throw404 = function () {
+        header("Status: 404 Not Found");
         return buildPage('/404/');
+    };
+    if (!$path) {
+        return $throw404();
     }
     $defaultPrefix = '/_views';
     list($templateWithMeta, $pageDir, $pageName) = getFileContent($path, 'html', $defaultPrefix);
     if ($templateWithMeta === false) {
-        return buildPage('/404/');
+        return $throw404();
     }
     list($meta, $template) = parseMetaPage($templateWithMeta);
     $out        = $template;
@@ -335,11 +353,11 @@ function buildPage($path, $params_origin = [])
     $css        = "<style>/* $path */" . $css . "</style>\n";
     //                                                      // L  Inject   View secret       comment
     $params = [];
-    $params = array_merge($params, $_REQUEST); // 5 DANGEROUS          add server constants
+    //    $params = array_merge($params, $_REQUEST); // 5 DANGEROUS          add server constants
     if (isset($_SESSION))
         $params = array_merge($params, $_SESSION); // 4 UNTRUST            add server constants
-    $params = array_merge($params, $_SERVER); // 3 UNTRUST            add server constants
-    $params = array_merge($params, get_defined_constants()); // 2 TRUST    DANGEROUS  add constants
+    //    $params = array_merge($params, $_SERVER); // 3 UNTRUST            add server constants
+    //    $params = array_merge($params, get_defined_constants()); // 2 TRUST    DANGEROUS  add constants
     $params = array_merge($params, $params_origin); // 0 TRUST              add page call params
     $params = array_merge($params, $pageObject); // 1 TRUST              add page php script given object
     // @todo add params filters
@@ -354,13 +372,13 @@ function buildPage($path, $params_origin = [])
     if (isset($pageObject['_STOP_'])) {
         $stopRef = $pageObject['_STOP_']; // ref to redirect page or null for 404
         if (!$stopRef) {
-            return buildPage('/404/');
+            return $throw404();
         }
         header("Location: $stopRef");
     }
     //
     // Replace recursive call placeholders
-    $out = preg_replace_callback('!'.'@([a-z_\-/\.]+?)@'.'!i',
+    $out = preg_replace_callback('!' . '@([a-z_\-/\.]+?)@' . '!i',
         function ($matches) use ($params, $pageDir, $defaultPrefix) {
             $match = $matches[1];
             if (!$pageDir || preg_match('!^/!', $match)) // if pageDir isn't set OR @placeholder@ start with /, than decide match absolute
@@ -374,7 +392,7 @@ function buildPage($path, $params_origin = [])
     $out = specifyTemplateExtended($out, $params, $paramMapping, $pageDir);
     if (isset($meta['base'])) { // if base tpl is declared
         $params['content'] = $out;
-        $basePath = true_is_preg_match('^/',$meta['base']) ? $meta['base'] : "{$pageDir}/{$meta['base']}";
+        $basePath          = true_is_preg_match('^/', $meta['base']) ? $meta['base'] : "{$pageDir}/{$meta['base']}";
         return buildPage($basePath, $params);
     }
     else
@@ -383,7 +401,7 @@ function buildPage($path, $params_origin = [])
 
 
 /**
- *
+ * @version 2 no backward compatible (strike every 2th % sign placaholder braces)
  * Substitution variables into placeholders in the $template
  *
  * @param string $template - Target text
@@ -420,14 +438,18 @@ function specifyTemplateExtended($template, $vars = [], $paramMapping = [])
     //
     // Replace parametrized variable placeholders
     $out = preg_replace_callback(
-        '/%%([a-z_\-]+?)\[([a-z_\-]+?)\]%%/i',
+        '/%([a-z0-9_\-]+?)\[([a-z0-9_\.\-]+?)\]%/i',
         function ($matches) use ($vars, $paramMapping) {
-            if (!isset($vars[$matches[1]]) || !isset($vars[$matches[1]][$matches[2]])) {
-                bugReport2("specifyTemplate()", "placeholder '[ $matches[1] ][ $matches[2] ]' haven't value");
+            $variable_name = $matches[1];
+            $selector      = $matches[2];
+            if (!isset($vars[$variable_name])) {
+                bugReport2("specifyTemplate()", "placeholder '{$variable_name}[{$selector}]' haven't value");
                 return '';
             }
-            else
-                return $vars[$matches[1]][$matches[2]];
+            else {
+                $variable = $vars[$variable_name];
+                return array_get_deep($variable, $selector); // Deep or simple key
+            }
         }
         , $out
     );
@@ -534,9 +556,9 @@ function getDirList($path, $excludeMimes = [], $isDebug = false)
  */
 function getLogPath()
 {
-    $mode     = (IS_DEBUG_ALX === true) ? 'dev' : 'prod';
+    $mode        = (IS_DEBUG_ALX === true) ? 'dev' : 'prod';
     $server_name = preg_replace('!^testdev\.!', '', $_SERVER['SERVER_NAME']);
-    $log_path = "/var/www/logs/{$server_name}/{$mode}_logs/";
+    $log_path    = "/var/www/logs/{$server_name}/{$mode}_logs/";
     exec("mkdir -p {$log_path}");
     return $log_path;
 }
@@ -594,8 +616,9 @@ function getFileInfo($filePath, $typeInfo = FILEINFO_MIME_TYPE)
 
 
 /**
+ * @deprecated array_get_deep
  * Вычислить значение многомерного массива, ключ которого задан строкой key1.key2.key3. ... keyN
- * @example evalArrayByPath('a.b.c',[a=>[b=>[c=>1]]]) -> 1
+ * @example    evalArrayByPath('a.b.c',[a=>[b=>[c=>1]]]) -> 1
  *
  * @param $path
  * @param $root
@@ -611,6 +634,19 @@ function evalArrayByPath($path, $root)
         else return false;
     }
     return $root;
+}
+
+/**
+ * @example array_get_deep([a=>[b=>[c=>1]]], 'a.b.c') -> 1
+ *
+ * @param $array
+ * @param $selector
+ *
+ * @return bool|mixed
+ */
+function array_get_deep($array, $selector)
+{
+    return evalArrayByPath($selector, $array);
 }
 
 /**
@@ -845,6 +881,7 @@ function mailDump($data, $to, $consts, $theme)
 }
 
 /**
+ * @version 2 consts convention changed
  * Send project specific mail
  *
  * @param $message
@@ -858,8 +895,8 @@ function mailDump($data, $to, $consts, $theme)
 function mailProject($message, $to, $fromName, $consts, $theme)
 {
     $fromName = transliterateCyr($fromName);
-    $fromName = $fromName ? "$fromName (via site)" : $consts['PROJECT_NAME_STUB'];
-    $from     = "$fromName <{$consts['MAILER_EMAIL']}>";
+    $fromName = $fromName ? "$fromName (via site)" : $consts['name-stub'];
+    $from     = "$fromName <{$consts['mailer-email']}>";
     //
     // MIME message type
     $headers
