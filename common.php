@@ -230,12 +230,16 @@ function true_exec($script) {
  *
  * @return string
  */
-function exec_node($scriptPath)
+function exec_node($scriptPath, $paramsOrigin)
 {
     global $C;
-    $paramsCollection = func_get_args();
-    $params = call_user_func(function () use ($paramsCollection) {
+    if(!$paramsOrigin) {
+        $paramsCollection = func_get_args();
         array_shift($paramsCollection);
+    }
+    else
+        $paramsCollection = $paramsOrigin;
+    $params = call_user_func(function () use ($paramsCollection) {
         $paramsStr = '';
         foreach ($paramsCollection as $argument) {
             $paramsStr .= ' ' . "'".str_replace("'","\\'",(
@@ -246,12 +250,16 @@ function exec_node($scriptPath)
         }
         return $paramsStr;
     });
+//    _d(['ex node', "node {$C(__DIR__)}/../../../{$scriptPath}{$params}"]);
     return true_exec("node {$C(__DIR__)}/../../../{$scriptPath}{$params}");
 }
 
 function exec_node_json($scriptPath)
 {
-    return json_decode(exec_node($scriptPath), true);
+    $paramsCollection = func_get_args();
+    array_shift($paramsCollection);
+//    _d(['enj,1',$paramsCollection, $scriptPath]);
+    return json_decode(exec_node($scriptPath, $paramsCollection), true);
 }
 
 /**
@@ -526,8 +534,9 @@ function getDirList($path, $excludeMimes = [], $isDebug = false)
  */
 function getLogPath()
 {
-    $mode     = (IS_DEBUG_ALX === true) ? 'dev' : 'prod';
-    $log_path = "/var/www/logs/{$_SERVER['SERVER_NAME']}/{$mode}_logs/";
+    $base_domain = preg_replace('!^testdev\.!', '', $_SERVER['SERVER_NAME']);
+    $mode        = (IS_DEBUG_ALX === true) ? 'dev' : 'prod';
+    $log_path    = "/var/www/logs/{$base_domain}/{$mode}_logs/";
     exec("mkdir -p {$log_path}");
     return $log_path;
 }
