@@ -760,7 +760,7 @@ function array_filter_bwListsByKeys($array, $whiteList = [], $blackList = [])
             ${$type2} [$item] = null;
         }
     }
-    return array_filter_bwLists($array, $whiteList, $blackList);
+    return array_filter_bwLists($array, $whiteListKeyVal, $blackListKeyVal); // DONT TOUCH KeyVal!!!
 }
 
 
