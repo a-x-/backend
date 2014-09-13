@@ -534,9 +534,9 @@ function getDirList($path, $excludeMimes = [], $isDebug = false)
  */
 function getLogPath()
 {
-    $base_domain = preg_replace('!^testdev\.!', '', $_SERVER['SERVER_NAME']);
-    $mode        = (IS_DEBUG_ALX === true) ? 'dev' : 'prod';
-    $log_path    = "/var/www/logs/{$base_domain}/{$mode}_logs/";
+    $mode     = (IS_DEBUG_ALX === true) ? 'dev' : 'prod';
+    $server_name = preg_replace('!^testdev\.!', '', $_SERVER['SERVER_NAME']);
+    $log_path = "/var/www/logs/{$server_name}/{$mode}_logs/";
     exec("mkdir -p {$log_path}");
     return $log_path;
 }
