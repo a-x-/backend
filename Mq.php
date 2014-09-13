@@ -702,11 +702,11 @@ class MqException extends \Invntrm\ExtendedException
     {
         //
         // Get short message if driver error present or debug mode activated
-        $message = ($driverError && !$self->isLoggingActive()) ? $driverError :
+        $message = $codeExtended . (($driverError && !$self->isLoggingActive()) ? $driverError :
             "Args:\n" . \Invntrm\varDumpRet($args)
             . "\nDriverError:\n" . \Invntrm\varDumpRet($driverError)
             . "\nInitial request string:\n" . $self->getInitialRequest()
-            . "\nInitial args:\n" . \Invntrm\varDumpRet($self->getInitialArgs());
+            . "\nInitial args:\n" . \Invntrm\varDumpRet($self->getInitialArgs()));
 
         parent::__construct($codeExtended, $message);
         $this->self = $self;
