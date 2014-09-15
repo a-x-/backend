@@ -237,6 +237,24 @@ class Mq
         if (preg_match('!^\s*DELETE!i', $this->req)) {
             $result          = !!$stmt->affected_rows;
             $isDeleteRequest = true;
+            return $result;
+        }
+        elseif (preg_match('!^\s*(INSERT|UPDATE)!i', $this->req)) {
+            $result = $this->driver->insert_id; // Get affected row id
+            if (!$result) {
+                //
+                // Force get id
+                // unstable ...
+                $select_id = $this->req;
+                $select_id = preg_replace('!update!i', 'select id from', $select_id);
+                $select_id = preg_replace('!set.*?where!i', 'where', $select_id);
+                try {
+                    $result = (new \Mq())->performChain($select_id, \Mq_Mode::REQUEST, \Mq_Mode::SMART_DATA, $extra);
+                } catch (\Exception $e) {
+                    $result = null;
+                }
+                return $result;
+            }
         }
         else {
             $result          = $stmt->get_result();
@@ -245,7 +263,7 @@ class Mq
         // fix: result may be not present. it's normal
         // if (!$result) throw new MqException('Get iterative fault', $args, $this->getCheckDriverError());
         $this->logDebug(__METHOD__, ['stmt' => $stmt, 'result' => $result], $isLog);
-        if (!$result || !$result->num_rows)
+        if (!$result || is_object($result) && !$result->num_rows)
             $this->logDebug(__METHOD__, $isDeleteRequest ? '[WARN Nothing delete...]' : '[WARN] Result is empty!', $isLog);
         return $result;
     }
@@ -268,10 +286,13 @@ class Mq
      */
     public function fromIterativeToRaw($iterative, $extra = [], $isLog = false)
     {
-        if (preg_match('!^\s*(INSERT|UPDATE)!i', $this->req)) {
-            $result = $this->driver->insert_id; // Get affected row id
-        }
-        elseif (preg_match('!^\s*DELETE!i', $this->req)) {
+        //        if (preg_match('!^\s*(INSERT|UPDATE)!i', $this->req)) {
+        //            $result = $this->driver->insert_id; // Get affected row id
+        //            //            if(!$result) {
+        //            //                $result = (new \Mq())->performChain('SELECT LAST_INSERT_ID()', \Mq_Mode::REQUEST, \Mq_Mode::SMART_DATA, []);
+        //            //            }
+        //        }
+        if (preg_match('!^\s*(INSERT|UPDATE|DELETE)!i', $this->req)) {
             $result = $iterative; // is anything deleted
         }
         else {
@@ -625,15 +646,17 @@ class AlxMq extends Mq
                 $part[3] = str_replace('*', '?', $part[3]);
                 $out .= "UPDATE $part[1] SET " . $part[3] . "$part2;";
                 if (\Invntrm\true_count($params)) {
-                    //
-                    // fix params order
-                    $whereExpr = array_shift($params);
-                    $params[]  = $whereExpr;
-                    //
-                    // fix sigma order
-                    $whereExprSign = substr($sigma, 0, 1);
-                    $sigma         = substr($sigma, 1, strlen($sigma) - 1);
-                    $sigma .= $whereExprSign;
+                    for ($i = 0, $l = substr_count($part2, '?'); $i < $l; ++$i) {
+                        //
+                        // fix params order
+                        $whereExpr = array_shift($params);
+                        $params[]  = $whereExpr;
+                        //
+                        // fix sigma order
+                        $whereExprSign = substr($sigma, 0, 1);
+                        $sigma         = substr($sigma, 1, strlen($sigma) - 1);
+                        $sigma .= $whereExprSign;
+                    }
                 }
             }
         } // foreach ($reqArr as $req) Проход по отдельным alx-запросам
@@ -703,10 +726,10 @@ class MqException extends \Invntrm\ExtendedException
         //
         // Get short message if driver error present or debug mode activated
         $message = $codeExtended . (($driverError && !$self->isLoggingActive()) ? $driverError :
-            "Args:\n" . \Invntrm\varDumpRet($args)
-            . "\nDriverError:\n" . \Invntrm\varDumpRet($driverError)
-            . "\nInitial request string:\n" . $self->getInitialRequest()
-            . "\nInitial args:\n" . \Invntrm\varDumpRet($self->getInitialArgs()));
+                "Args:\n" . \Invntrm\varDumpRet($args)
+                . "\nDriverError:\n" . \Invntrm\varDumpRet($driverError)
+                . "\nInitial request string:\n" . $self->getInitialRequest()
+                . "\nInitial args:\n" . \Invntrm\varDumpRet($self->getInitialArgs()));
 
         parent::__construct($codeExtended, $message);
         $this->self = $self;
