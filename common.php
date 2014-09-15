@@ -1155,3 +1155,31 @@ function sanitize_validate_email($email) {
 function sanitize_validate_phone($phone) {
     $phone = preg_replace('/^\s*(8|7)/', '+7', preg_replace('/[^0-9]/', '', $phone));
 }
+
+/**
+ * Get a Gravatar URL for the email address of connected user
+ * Gravatar is the #1 (free) provider for email address based global avatar hosting.
+ * The URL returns always a .jpg file !
+ * For deeper info on the different parameter possibilities:
+ * @see http://de.gravatar.com/site/implement/images/
+ *
+ * @param int|string $s Size in pixels, defaults to 50px [ 1 - 2048 ]
+ * @param string     $d Default image set to use [ 404 | mm | identicon | monsterid | wavatar ]
+ * @param string     $r Maximum rating (inclusive) [ g | pg | r | x ]
+ * @source http://gravatar.com/site/implement/images/php/
+ *
+ * @return string
+ */
+function get_gravatar_image_url($email, $s = 50, $d = 'mm', $r = 'g')
+{
+    if ($email != '') {
+        // the image url (on gravatar servers), will return in something like
+        // http://www.gravatar.com/avatar/205e460b479e2e5b48aec07710c08d50?s=80&d=mm&r=g
+        // note: the url does NOT have something like .jpg
+        return 'http://www.gravatar.com/avatar/' . md5(strtolower(trim($email))) . "?s=$s&d=$d&r=$r&f=y";
+    }
+    else {
+        return '';
+    }
+}
+
