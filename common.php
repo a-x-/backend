@@ -255,7 +255,6 @@ function exec_node($scriptPath, $paramsOrigin)
         }
         return $paramsStr;
     });
-    //    _d(['ex node', "node {$C(__DIR__)}/../../../{$scriptPath}{$params}"]);
     return true_exec("node {$C(__DIR__)}/../../../{$scriptPath}{$params}");
 }
 
@@ -556,9 +555,9 @@ function getDirList($path, $excludeMimes = [], $isDebug = false)
  */
 function getLogPath()
 {
-    $mode        = (IS_DEBUG_ALX === true) ? 'dev' : 'prod';
+    $mode     = (IS_DEBUG_ALX === true) ? 'dev' : 'prod';
     $server_name = preg_replace('!^testdev\.!', '', $_SERVER['SERVER_NAME']);
-    $log_path    = "/var/www/logs/{$server_name}/{$mode}_logs/";
+    $log_path = "/var/www/logs/{$server_name}/{$mode}_logs/";
     exec("mkdir -p {$log_path}");
     return $log_path;
 }
@@ -881,7 +880,6 @@ function mailDump($data, $to, $consts, $theme)
 }
 
 /**
- * @version 2 consts convention changed
  * Send project specific mail
  *
  * @param $message
@@ -895,8 +893,8 @@ function mailDump($data, $to, $consts, $theme)
 function mailProject($message, $to, $fromName, $consts, $theme)
 {
     $fromName = transliterateCyr($fromName);
-    $fromName = $fromName ? "$fromName (via site)" : $consts['name-stub'];
-    $from     = "$fromName <{$consts['mailer-email']}>";
+    $fromName = $fromName ? "$fromName (via site)" : $consts['PROJECT_NAME_STUB'];
+    $from     = "$fromName <{$consts['MAILER_EMAIL']}>";
     //
     // MIME message type
     $headers
