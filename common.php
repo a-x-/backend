@@ -1112,3 +1112,46 @@ function processException(\Exception $e, $endpoint = '', $endpoint_message = '',
     return $error_object;
 }
 
+
+function sanitize_validate_name($user_name, $required_full_name_level = 0)
+{
+    require_once __DIR__ . '/../../../vendor/igrizzli/NameCaseLib/Library/NCLNameCaseRu.php';
+    $name = preg_replace('!\s\s+!', ' ', trim($user_name));
+    $name = \Invntrm\transliterateCyr($name, true); // Latin to Cyrillic transliterate
+    $name = \Invntrm\true_strtolowercase($name);
+    if (empty($name)) return '';
+    $nameLib = new \NCLNameCaseRu();
+    $nameLib->q($name);
+    $nameParts = ['', '', ''];
+    $nom       = \NCL::$IMENITLN; // nominative -- Именительный падеж
+    foreach ($nameLib->getWordsArray() as $namePart) {
+        switch ($namePart->getNamePart()) {
+            case('N'):
+                $nameParts[1] = \Invntrm\true_strtocap($namePart->getNameCase($nom));
+                break;
+            case('S'):
+                $nameParts[0] = \Invntrm\true_strtocap($namePart->getNameCase($nom));
+                break;
+            case('F'):
+                $nameParts[2] = \Invntrm\true_strtocap($namePart->getNameCase($nom));
+                break;
+        }
+    }
+    //
+    // Strict checking part being there
+    if($required_full_name_level >= 1 && !$namePart[0]) return false;
+    if($required_full_name_level >= 2 && !$namePart[1]) return false;
+    if($required_full_name_level === 3 && !$namePart[2]) return false;
+    //
+    $name = join(' ', $nameParts);
+    return $name;
+}
+
+function sanitize_validate_email($email) {
+    $email = true_strtolowercase(filter_var(filter_input(INPUT_POST, 'email', FILTER_VALIDATE_EMAIL), FILTER_SANITIZE_EMAIL));
+    return $email;
+}
+
+function sanitize_validate_phone($phone) {
+    $phone = preg_replace('/^\s*(8|7)/', '+7', preg_replace('/[^0-9]/', '', $phone));
+}
