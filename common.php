@@ -295,7 +295,7 @@ function getFNameStamp($fileMame, $isPathRewriteActive = false)
  */
 function specifyTemplate($template, $vars)
 {
-    return preg_replace_callback('/%([a-z_\-]+?)%/i',
+    return preg_replace_callback('/%([a-z_\-0-9]+?)%/i',
         function ($matches) use ($vars) {
             return (isset($vars[$matches[1]])) ? $vars[$matches[1]] : '';
         },
@@ -555,9 +555,9 @@ function getDirList($path, $excludeMimes = [], $isDebug = false)
  */
 function getLogPath()
 {
-    $mode     = (IS_DEBUG_ALX === true) ? 'dev' : 'prod';
+    $mode        = (IS_DEBUG_ALX === true) ? 'dev' : 'prod';
     $server_name = preg_replace('!^testdev\.!', '', $_SERVER['SERVER_NAME']);
-    $log_path = "/var/www/logs/{$server_name}/{$mode}_logs/";
+    $log_path    = "/var/www/logs/{$server_name}/{$mode}_logs/";
     exec("mkdir -p {$log_path}");
     return $log_path;
 }
@@ -882,6 +882,7 @@ function mailDump($data, $to, $consts, $theme)
 }
 
 /**
+ * @version 2 consts convention changed
  * Send project specific mail
  *
  * @param $message
@@ -895,8 +896,8 @@ function mailDump($data, $to, $consts, $theme)
 function mailProject($message, $to, $fromName, $consts, $theme)
 {
     $fromName = transliterateCyr($fromName);
-    $fromName = $fromName ? "$fromName (via site)" : $consts['PROJECT_NAME_STUB'];
-    $from     = "$fromName <{$consts['MAILER_EMAIL']}>";
+    $fromName = $fromName ? "$fromName (via site)" : $consts['name-stub'];
+    $from     = "$fromName <{$consts['mailer-email']}>";
     //
     // MIME message type
     $headers
@@ -1174,10 +1175,10 @@ class ExtendedException extends \Exception
     }
 
     /**
-     * @param string     $codeExtended
-     * @param string     $description
-     * @param \Exception $previous    [optional]
-     * @param int        $numericCode [optional]
+     * @param string $codeExtended
+     * @param string $description
+     * @param \Exception $previous [optional]
+     * @param int $numericCode [optional]
      */
     public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null)
     {
@@ -1272,6 +1273,56 @@ function processException(\Exception $e, $endpoint = '', $endpoint_message = '',
     return $error_object;
 }
 
+
+function sanitize_validate_name($user_name, $required_full_name_level = 0)
+{
+    require_once __DIR__ . '/../../../vendor/igrizzli/NameCaseLib/Library/NCLNameCaseRu.php';
+    $name = $user_name;
+    $name = str_replace('&nbsp;', ' ', $name);
+    $name = preg_replace('![^a-zа-яё\-\'\s]!iu', '', $name);
+    $name = preg_replace('!\s+!', ' ', trim($name));
+    $name = substr($name, 0, 256); // bad magic const referenced with user DB's table
+    $name = \Invntrm\transliterateCyr($name, true); // Latin to Cyrillic transliterate
+    $name = \Invntrm\true_strtolowercase($name);
+    if (empty($name)) return '';
+    $nameLib = new \NCLNameCaseRu();
+    $nameLib->q($name);
+    $nameParts = ['', '', ''];
+    $nom       = \NCL::$IMENITLN; // nominative -- Именительный падеж
+    foreach ($nameLib->getWordsArray() as $namePart) {
+        switch ($namePart->getNamePart()) {
+            case('N'):
+                $nameParts[1] = \Invntrm\true_strtocap($namePart->getNameCase($nom));
+                break;
+            case('S'):
+                $nameParts[0] = \Invntrm\true_strtocap($namePart->getNameCase($nom));
+                break;
+            case('F'):
+                $nameParts[2] = \Invntrm\true_strtocap($namePart->getNameCase($nom));
+                break;
+        }
+    }
+    //
+    // Strict checking part being there
+    if ($required_full_name_level >= 1 && !$nameParts[0]) return false;
+    if ($required_full_name_level >= 2 && !$nameParts[1]) return false;
+    if ($required_full_name_level === 3 && !$nameParts[2]) return false;
+    //
+    $name = trim(join(' ', $nameParts));
+    return $name;
+}
+
+function sanitize_validate_email($email)
+{
+    $email = true_strtolowercase(filter_var(filter_input(INPUT_POST, 'email', FILTER_VALIDATE_EMAIL), FILTER_SANITIZE_EMAIL));
+    return $email;
+}
+
+function sanitize_validate_phone($phone)
+{
+    $phone = preg_replace('/^\s*(8|7)/', '+7', preg_replace('/[^0-9]/', '', $phone));
+}
+
 /**
  * Get a Gravatar URL for the email address of connected user
  * Gravatar is the #1 (free) provider for email address based global avatar hosting.
@@ -1279,10 +1330,9 @@ function processException(\Exception $e, $endpoint = '', $endpoint_message = '',
  * For deeper info on the different parameter possibilities:
  * @see http://de.gravatar.com/site/implement/images/
  *
- * @param            $email
  * @param int|string $s Size in pixels, defaults to 50px [ 1 - 2048 ]
- * @param string     $d Default image set to use [ 404 | mm | identicon | monsterid | wavatar ]
- * @param string     $r Maximum rating (inclusive) [ g | pg | r | x ]
+ * @param string $d Default image set to use [ 404 | mm | identicon | monsterid | wavatar ]
+ * @param string $r Maximum rating (inclusive) [ g | pg | r | x ]
  * @source http://gravatar.com/site/implement/images/php/
  *
  * @return string
@@ -1294,10 +1344,8 @@ function get_gravatar_image_url($email, $s = 50, $d = 'mm', $r = 'g')
         // http://www.gravatar.com/avatar/205e460b479e2e5b48aec07710c08d50?s=80&d=mm&r=g
         // note: the url does NOT have something like .jpg
         return 'http://www.gravatar.com/avatar/' . md5(strtolower(trim($email))) . "?s=$s&d=$d&r=$r&f=y";
-    }
-    else {
+    } else {
         return '';
     }
 }
-
 

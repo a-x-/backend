@@ -544,7 +544,7 @@ class AlxMq extends Mq
                 $part[2] = $part2Preprocessor($part[2]);
                 return "INSERT INTO $table SET $part[2]";
             }
-            preg_match('/^([a-z_0-9]+)\[\s*(.*)\s*\]\?([a-z0-9_,`\.\'=*? >\(\)]+)(?:\|((?:\s*(?:\.:|:\.)\s*[^\|]+?)+))?(?:\|(.*))?\s*$/i', $req, $part); //           Разбить alx-запрос на составляющие
+            preg_match('/'.'^([a-z_0-9]+)\[\s*(.*)\s*\]\?([a-z\+0-9_,`\.\'=*? >\(\)]+)(?:\|((?:\s*(?:\.:|:\.)\s*[^\|]+?)+))?(?:\|(.*))?\s*$'.'/i', $req, $part); //           Разбить alx-запрос на составляющие
             /*
              * [1]--primary_table [2]--condition [3]--aim [4]-- order_col, order_dir  [5]--group
              */
