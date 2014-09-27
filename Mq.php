@@ -554,6 +554,8 @@ class AlxMq extends Mq
             preg_match_all('!ref:([a-z_0-9]+)!im', $part[2] . ',', $additionRefTables, PREG_PATTERN_ORDER);
             $part[2] = preg_replace('!ref:([a-z_0-9]+)!im', "", $part[2]);
             $part[2] = str_replace('&&', ' AND ', $part[2]);
+            $part[2] = str_replace(',', ' AND ', $part[2]);
+            $part[2] = str_replace('||', ' OR ', $part[2]);
 
             $part[1] = $part1 = isset($part[1]) ? $part[1] : '';
 
