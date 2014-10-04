@@ -231,19 +231,15 @@ function true_exec($script)
 }
 
 /**
+ * @version 2 param array instead of ...
  * @param $scriptPath
  *
+ * @param $paramsCollection string[]
  * @return string
  */
-function exec_node($scriptPath, $paramsOrigin)
+function exec_node($scriptPath, $paramsCollection)
 {
     global $C;
-    if (!$paramsOrigin) {
-        $paramsCollection = func_get_args();
-        array_shift($paramsCollection);
-    }
-    else
-        $paramsCollection = $paramsOrigin;
     $params = call_user_func(function () use ($paramsCollection) {
         $paramsStr = '';
         foreach ($paramsCollection as $argument) {
