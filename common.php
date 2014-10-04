@@ -137,6 +137,7 @@ function true_session_start()
 }
 
 /**
+ * @deprecated by true_array_map_2
  * Send to callback value and key, instead of array_map, which sends only value
  */
 function true_array_map($callback, $array)
@@ -147,6 +148,14 @@ function true_array_map($callback, $array)
     }
     return $resultArray;
 }
+
+/**
+ * Send to callback value and key, instead of array_map, which sends only value
+ * @param $array
+ * @param $callback
+ * @return array
+ */
+function true_array_map_2 ($array, $callback) { return true_array_map($callback, $array); }
 
 function true_strtolowercase($string)
 {
@@ -214,6 +223,7 @@ function true_get_preg_match($pattern, $subject, $affix = '', $delimiter = '!')
 
 function true_is_preg_match($pattern, $subject, $affix = '', $delimiter = '!')
 {
+//    _d(['true_is_preg_match','p'=>$pattern,'s'=>$subject,'a'=>$affix]);
     return preg_match("{$delimiter}{$pattern}{$delimiter}{$affix}", $subject);
 }
 
@@ -373,7 +383,7 @@ function buildPage($path, $params_origin = [])
     }
     //
     // Replace recursive call placeholders
-    $out = preg_replace_callback('!' . '@([a-z_\-/\.]+?)@' . '!i',
+    $out = preg_replace_callback('!' . '@([a-z_\-/\.0-9]+?)@' . '!i',
         function ($matches) use ($params, $pageDir, $defaultPrefix) {
             $match = $matches[1];
             if (!$pageDir || preg_match('!^/!', $match)) // if pageDir isn't set OR @placeholder@ start with /, than decide match absolute
@@ -575,10 +585,16 @@ function _d($text, $isTrace = false, $logName = 'check')
     file_put_contents(
         "{$log_path}/{$logName}.log",
         "\n" . date(DATE_RSS) . '>'
-        . \Invntrm\varDumpRet($text)
-        . ($isTrace ? "\nTrace:\n" . \Invntrm\varDumpRet(debug_backtrace()) : ''),
+        . var_export($text, true)
+        . ($isTrace ? "\nTrace:\n" . true_debug_print_backtrace() : ''),
         FILE_APPEND
     );
+}
+
+function true_debug_print_backtrace () {
+    ob_start();
+    debug_print_backtrace();
+    return ob_get_clean();
 }
 
 /**
@@ -742,9 +758,7 @@ function varDumpRet($var, $isPretty = false)
 
 function printRRet($var)
 {
-    ob_start();
-    print_r($var);
-    return ob_get_clean();
+    return print_r($var, true);
 }
 
 /**
@@ -1231,8 +1245,11 @@ class ExtendedInvalidArgumentException extends \InvalidArgumentException
  *
  * @return array
  */
-function processException(\Exception $e, $endpoint = '', $endpoint_message = '', $endpoint_code_extended = '')
+function processException(\Exception $e, $endpoint = null, $endpoint_message = '', $endpoint_code_extended = '')
 {
+    if(!$endpoint) {
+        $endpoint = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    }
     \Invntrm\bugReport2($endpoint, ['Pre error record', $endpoint, $endpoint_message, $endpoint_code_extended, $e]);
 
     global $_PUT;
@@ -1240,8 +1257,8 @@ function processException(\Exception $e, $endpoint = '', $endpoint_message = '',
     $e_str_error_id = (method_exists($e, 'getCodeExtended') ? $e->getCodeExtended() : $e->getCode());
     $e_str_message  = $e->getMessage();
     //
-    $str_error_id = $endpoint_code_extended ? $endpoint_code_extended : $e_str_error_id;
     $str_message  = $endpoint_message ? $endpoint_message : $e->getMessage();
+    $str_error_id = $endpoint_code_extended ? $endpoint_code_extended : ($e_str_error_id ? $e_str_error_id : 'unknown_error');
     $num_code     = $e->getCode();
     $error_object = [
         'error'          => $str_error_id,

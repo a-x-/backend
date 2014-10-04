@@ -83,8 +83,7 @@ class Mq
             $args       = $schemeName;
             $schemeName = \Invntrm\true_get($args, 'schemeName');
             $isLog      = \Invntrm\true_get($args, 'isLog');
-        }
-        else {
+        } else {
             $args = ['schemeName' => $schemeName, 'isLog' => $isLog];
         }
         $this->isLog      = $isLog;
@@ -226,7 +225,7 @@ class Mq
         if ($isArg) {
             array_unshift($params, $sigma); // Расширяем начальным элементом, содержащим сигнатуру
             $tmp = []; // Преобразуем строки в ссылки (требуется функции call_user_func_array)
-            foreach ($params as $key => $value) $tmp[$key] = & $params[$key]; // ...
+            foreach ($params as $key => $value) $tmp[$key] = &$params[$key]; // ...
             call_user_func_array([$stmt, 'bind_param'], $tmp); // Запускаем $stmt->bind_param с праметрами из массива
         }
         //
@@ -238,8 +237,7 @@ class Mq
             $result          = !!$stmt->affected_rows;
             $isDeleteRequest = true;
             return $result;
-        }
-        elseif (preg_match('!^\s*(INSERT|UPDATE)!i', $this->req)) {
+        } elseif (preg_match('!^\s*(INSERT|UPDATE)!i', $this->req)) {
             $result = $this->driver->insert_id; // Get affected row id
             if (!$result) {
                 //
@@ -255,8 +253,7 @@ class Mq
                 }
                 return $result;
             }
-        }
-        else {
+        } else {
             $result          = $stmt->get_result();
             $isDeleteRequest = false;
         }
@@ -294,8 +291,7 @@ class Mq
         //        }
         if (preg_match('!^\s*(INSERT|UPDATE|DELETE)!i', $this->req)) {
             $result = $iterative; // is anything deleted
-        }
-        else {
+        } else {
             if (!$iterative) throw new \MqInvalidArgumentException('iterative_not_specified', $iterative, $this);
             $result = $iterative->fetch_all(MYSQLI_ASSOC); // Or get result
         }
@@ -362,12 +358,10 @@ class Mq
             $errNo             = $this->stmt->errno;
             $errNote           = $this->stmt->error;
             $additionErrorType = 'stmt';
-        }
-        elseif ($this->driver->errno) {
+        } elseif ($this->driver->errno) {
             $errNo   = $this->driver->errno;
             $errNote = $this->driver->error;
-        }
-        elseif ($this->driver->connect_errno) {
+        } elseif ($this->driver->connect_errno) {
             $errNo             = $this->driver->connect_errno;
             $errNote           = $this->driver->connect_error;
             $additionErrorType = 'connect';
@@ -509,7 +503,7 @@ class AlxMq extends Mq
         // $part2ToJoinTables = array(); // Addition tables
         // $part1 = ''; // FROM
         // $part2ToJoinTables_cnt = 0; // Count of Addition tables
-        $part2Preprocessor = function ($part2) {
+        $part2Preprocessor = function ($part2, $part1) {
             $part2 = trim($part2);
             $part2 = str_replace('*', '?', $part2);
             //
@@ -525,6 +519,7 @@ class AlxMq extends Mq
             if (preg_match('!^\d+$!', $part2)) {
                 $part2 = "id=$part2";
             }
+            $part2 = preg_replace('#([^\.\w]|^)(\w+\s*=)#', '$1' . $part1 . '.$2', $part2);
             return $part2;
         };
         if (!$isLog) $isLog = $this->isLog;
@@ -535,21 +530,21 @@ class AlxMq extends Mq
             if (preg_match('!:d$!', $req)) { //                                                                              * Требуется запрос удаления
                 preg_match('!^([a-z_0-9]+)\[\s*(.*)\s*\]:d$!i', $req, $part); //                                           Разбить alx-запрос на простые составляющие (для запроса удаления)
                 $table   = $part[1];
-                $part[2] = $part2Preprocessor($part[2]);
+                $part[2] = $part2Preprocessor($part[2], $part[1]);
                 return "DELETE FROM $table WHERE $part[2];";
             }
             if (preg_match('!^[a-z_0-9]+\[.*\]>$!i', $req)) { //                                                                * Требуется запрос вставки
                 preg_match('!^([a-z_0-9]+)\[(.*)\]>\s*$!i', $req, $part); //                                           Разбить alx-запрос на простые составляющие (для запроса вставки)
                 $table   = $part[1];
-                $part[2] = $part2Preprocessor($part[2]);
+                $part[2] = $part2Preprocessor($part[2], $part[1]);
                 return "INSERT INTO $table SET $part[2]";
             }
-            preg_match('/'.'^([a-z_0-9]+)\[\s*(.*)\s*\]\?([a-z\+0-9_,`\.\'=*? >\(\)]+)(?:\|((?:\s*(?:\.:|:\.)\s*[^\|]+?)+))?(?:\|(.*))?\s*$'.'/i', $req, $part); //           Разбить alx-запрос на составляющие
+            preg_match('/' . '^([a-z_0-9]+)\[\s*(.*)\s*\]\?([a-z\+0-9_,`\.\'=*? >\(\)]+)(?:\|((?:\s*(?:\.:|:\.)\s*[^\|]+?)+))?(?:\|(.*))?\s*$' . '/i', $req, $part); //           Разбить alx-запрос на составляющие
             /*
              * [1]--primary_table [2]--condition [3]--aim [4]-- order_col, order_dir  [5]--group
              */
 
-            $part[2] = $part2Preprocessor(\Invntrm\true_get($part, 2));
+            $part[2] = $part2Preprocessor($part[2], $part[1]);
             $part[3] = isset($part[3]) ? str_replace('>', ' AS ', $part[3]) : '';
             preg_match_all('!ref:([a-z_0-9]+)!im', $part[2] . ',', $additionRefTables, PREG_PATTERN_ORDER);
             $part[2] = preg_replace('!ref:([a-z_0-9]+)!im', "", $part[2]);
@@ -567,6 +562,10 @@ class AlxMq extends Mq
                 if (trim($el) == '') return false;
                 return true;
             }));
+            // do not delete primary page from $part2ToJoinTables
+            $part2ToJoinTables = array_filter($part2ToJoinTables, function ($table_name) use ($part1) {
+                return $part1 !== $table_name;
+            });
 
             $part2ToJoinTables_cnt = \Invntrm\true_count($part2ToJoinTables);
 
@@ -578,29 +577,32 @@ class AlxMq extends Mq
                 // Check all possible refs from information_schema
                 // and join all ref-tables
                 $this->logDebug(__METHOD__, "MultiTablesReq", $isLog, '');
-                foreach ($part2ToJoinTables as $table) {
-                    if ($part[1] != $table) $part1 .= ' JOIN ' . $table;
-                }
-                $part1 .= ' ON ';
-                $part1_arr          = [];
-                $k                  = 0;
-                $information_schema = new AlxMq("information_schema");
-                $infoStmt           = $information_schema->req("COLUMNS[TABLE_SCHEMA=[SCHEME_NAME_DEFAULT] && TABLE_NAME=*]?COLUMN_NAME", '', false, Mq_Mode::PREPARED_STMT);
-                array_unshift($part2ToJoinTables, $part[1]);
-                foreach ($part2ToJoinTables as $table1)
-                    foreach ($part2ToJoinTables as $table2) {
-                        if ($table1 == $table2) continue;
-                        $infoStmt->bind_param('s', $table2);
-                        $infoStmt->execute();
-                        $infoResult = $infoStmt->get_result(); // Параметризуем, выполняем, получаем результаты
-                        for ($i = 0; $tmpResult = $infoResult->fetch_array(MYSQLI_ASSOC); $i++) {
-                            if (preg_match("!${table1}_id!", $tmpResult["COLUMN_NAME"])) {
-                                $part1_arr[$k++] = "$table2.${table1}_id=$table1.id";
-                                break;
+
+                //
+                // Add `ON` links to part1
+                $part1_with_join .= $part1 . ' JOIN '. join(' JOIN ', $part2ToJoinTables) .' ON ' . join(" AND ", call_user_func(function () use ($part1, $part2ToJoinTables) {
+                        $part1_arr          = [];
+                        $information_schema = new AlxMq("information_schema");
+                        $infoStmt           = $information_schema->req("COLUMNS[TABLE_SCHEMA=[SCHEME_NAME_DEFAULT] && TABLE_NAME=*]?COLUMN_NAME", '', false, Mq_Mode::PREPARED_STMT);
+                        array_unshift($part2ToJoinTables, $part1);
+                        //
+                        foreach ($part2ToJoinTables as $table1)
+                            foreach ($part2ToJoinTables as $table2) {
+                                if ($table1 == $table2) continue;
+                                $infoStmt->bind_param('s', $table2);
+                                $infoStmt->execute();
+                                $infoResult = $infoStmt->get_result(); // Параметризуем, выполняем, получаем результаты
+                                for ($i = 0; $tmpResult = $infoResult->fetch_array(MYSQLI_ASSOC); $i++) {
+                                    if (preg_match("!${table1}_id!", $tmpResult["COLUMN_NAME"])) {
+                                        $part1_arr[] = "$table2.${table1}_id=$table1.id";
+                                        if (count($part1_arr) >= count($part2ToJoinTables) - 1) return $part1_arr;
+                                        break;
+                                    }
+                                }
                             }
-                        }
-                    }
-                $part1 .= join(" AND ", $part1_arr);
+                        return $part1_arr;
+                    }));
+                $part1 = $part1_with_join;
 
                 /*
                  * Подстановка в каждое запрашиваемое поле(не имеющее указания таблицы) указания основной (первичной) таблицы ([1]--primary_table)
@@ -625,8 +627,7 @@ class AlxMq extends Mq
             if (trim($part[5])) if (preg_match('/\blimit\b/', $part[5])) {
                 $limit   = " $part[5] ";
                 $part[5] = '';
-            }
-            else $part[5] = " GROUP BY $part[5] ";
+            } else $part[5] = " GROUP BY $part[5] ";
             $part2 = (trim($part[2]) == "" ? "" : " WHERE $part[2]");
             //
             // request
@@ -701,8 +702,7 @@ class AlxMq extends Mq
                     $type
                 );
             }
-        }
-        else {
+        } else {
             $sigma = $sigma_or_params ? $sigma_or_params : '';
         }
         $req = $this->parse($req, $sigma, $params, $isLog);
