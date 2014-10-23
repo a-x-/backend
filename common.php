@@ -650,6 +650,28 @@ function get_preg_match($pattern, $string)
 }
 
 /**
+ * Motivation: keep RegExp in valid form. PhpStorm regexp pad can only valid clear regexp process
+ * @example true_get_preg_match('^/', '../gfd/')
+ *
+ * @param        $pattern
+ * @param        $subject
+ * @param        $affix
+ * @param string $delimiter
+ *
+ * @return mixed
+ */
+function true_get_preg_match($pattern, $subject, $affix = '', $delimiter = '!')
+{
+    return get_preg_match("{$delimiter}{$pattern}{$delimiter}{$affix}", $subject);
+}
+
+function true_is_preg_match($pattern, $subject, $affix = '', $delimiter = '!')
+{
+//    _d(['true_is_preg_match','p'=>$pattern,'s'=>$subject,'a'=>$affix]);
+    return preg_match("{$delimiter}{$pattern}{$delimiter}{$affix}", $subject);
+}
+
+/**
  * Return unshifted array (none modify)
  * a + [b,c] -> [a,b,c]
  *
