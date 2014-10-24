@@ -91,7 +91,7 @@ function true_strtolowercase($string)
  */
 function true_strtocap($string)
 {
-    return mb_uppercaseFirstLetter($string);
+    return mb_uppercaseFirstLetter($string, 'UTF-8');
 }
 
 function true_sort($array, $sort_flags = SORT_REGULAR)
