@@ -225,6 +225,15 @@ function buildPage($path, $params_origin = [])
         }
         header("Location: $stopRef");
     }
+    if(isset($params_origin['_REDIRECT_'])) {
+        $redirect = $params_origin['_REDIRECT_'];
+        // $time = true_is_preg_match('s$', $redirect[0]) ? (int)preg_replace('!s$!','',$redirect[0]) * 1000 : $redirect[0];
+        $time = $redirect[0];
+        $location = $redirect[1];
+        _d(['_REDIR_',$time,$location]);
+        $out = "<meta http-equiv='refresh' content='$time;$location'>" . $out;
+    }
+
     //
     // Replace recursive call placeholders
     $out = preg_replace_callback('/@([a-z_\-\/]+?)@/i',
