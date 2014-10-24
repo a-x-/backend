@@ -580,6 +580,7 @@ class AlxMq extends Mq
 
                 //
                 // Add `ON` links to part1
+                $part1_with_join = '';
                 $part1_with_join .= $part1 . ' JOIN '. join(' JOIN ', $part2ToJoinTables) .' ON ' . join(" AND ", call_user_func(function () use ($part1, $part2ToJoinTables) {
                         $part1_arr          = [];
                         $information_schema = new AlxMq("information_schema");

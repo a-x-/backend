@@ -6,7 +6,7 @@
 
 namespace Invntrm;
 
-define('ROOT', $_SERVER['DOCUMENT_ROOT'] . '/');
+define('ROOT', true_get($_SERVER,'DOCUMENT_ROOT') . '/');
 define('SRV', ROOT . '_ass/');
 $C    = function ($a) { return $a; }; // for injecting  consts into php strings .: "my const: {$C(MY_CONST)}";
 $_PUT = \Invntrm\get_parse_str(file_get_contents("php://input"));
@@ -562,7 +562,7 @@ function getDirList($path, $excludeMimes = [], $isDebug = false)
 function getLogPath()
 {
     $mode        = (IS_DEBUG_ALX === true) ? 'dev' : 'prod';
-    $server_name = preg_replace('!^testdev\.!', '', $_SERVER['SERVER_NAME']);
+    $server_name = preg_replace('!^testdev\.!', '', true_get($_SERVER,'SERVER_NAME'));
     $log_path    = "/var/www/logs/{$server_name}/{$mode}_logs/";
     exec("mkdir -p {$log_path}");
     return $log_path;
@@ -905,9 +905,10 @@ function mailDump($data, $to, $consts, $theme)
  */
 function mailProject($message, $to, $fromName, $consts, $theme)
 {
+    $mailer = isset($consts['mailer-email']) ? $consts['mailer-email'] : $consts['mailer'];
     $fromName = transliterateCyr($fromName);
     $fromName = $fromName ? "$fromName (via site)" : $consts['name-stub'];
-    $from     = "$fromName <{$consts['mailer-email']}>";
+    $from     = "$fromName <{$mailer}>";
     //
     // MIME message type
     $headers
@@ -1186,12 +1187,17 @@ class ExtendedException extends \Exception
 
     /**
      * @param string $codeExtended
-     * @param string $description
+     * @param string $description [optional]
      * @param \Exception $previous [optional]
      * @param int $numericCode [optional]
      */
     public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null)
     {
+        // Arguments reordering check-perform
+        if(is_numeric($previous)) {
+            $numericCode = $previous;
+            $previous = null;
+        }
         if (!$description) $description = 'Нет описания';
         parent::__construct($description, $numericCode, $previous);
         $this->codeExtended = ($codeExtended);
@@ -1226,6 +1232,15 @@ class ExtendedInvalidArgumentException extends \InvalidArgumentException
      */
     public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null, $arguments = null)
     {
+        // Arguments reordering check-perform
+        if(is_numeric($previous)) {
+            $numericCode = $previous;
+            $previous = null;
+        }
+        if(is_array($numericCode)) {
+            $arguments = $numericCode;
+            $numericCode = null;
+        }
         if (!$description) $description = 'Нет описания';
         if ($arguments) $description .= "\n\nАргументы:\n" . varDumpRet($arguments);
         parent::__construct($description, $numericCode, $previous);
@@ -1248,12 +1263,11 @@ class ExtendedInvalidArgumentException extends \InvalidArgumentException
 function processException(\Exception $e, $endpoint = null, $endpoint_message = '', $endpoint_code_extended = '')
 {
     if(!$endpoint) {
-        $endpoint = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+        $endpoint = parse_url(true_get($_SERVER,'REQUEST_URI'), PHP_URL_PATH);
     }
-    \Invntrm\bugReport2($endpoint, ['Pre error record', $endpoint, $endpoint_message, $endpoint_code_extended, $e]);
-
+//    \Invntrm\bugReport2($endpoint, ['Pre error record', $endpoint, $endpoint_message, $endpoint_code_extended, $e]);
     global $_PUT;
-    $method         = strtolower($_SERVER['REQUEST_METHOD']);
+    $method         = strtolower(true_get($_SERVER,'REQUEST_METHOD'));
     $e_str_error_id = (method_exists($e, 'getCodeExtended') ? $e->getCodeExtended() : $e->getCode());
     $e_str_message  = $e->getMessage();
     //
@@ -1270,11 +1284,7 @@ function processException(\Exception $e, $endpoint = null, $endpoint_message = '
     ];
     if (IS_DEBUG_ALX === true) {
         $error_object = array_merge($error_object, [
-            'error_debug' => [
-                'error'         => $e_str_error_id,
-                'error_message' => $e_str_message,
-                'error_debug'   => $e
-            ]
+            'error_debug' => $e
         ]);
     }
     if (!empty($num_code)) {
