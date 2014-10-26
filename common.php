@@ -1304,9 +1304,9 @@ function sanitize_validate_name($user_name, $required_full_name_level = 0)
     $name = str_replace('&nbsp;', ' ', $name);
     $name = preg_replace('![^a-zа-яё\-\'\s]!iu', '', $name);
     $name = preg_replace('!\s+!', ' ', trim($name));
-    $name = substr($name, 0, 256); // bad magic const referenced with user DB's table
+    $name = substr($name, 0, 256); // bad magic length const referenced with user DB's table
     $name = \Invntrm\transliterateCyr($name, true); // Latin to Cyrillic transliterate
-    $name = \Invntrm\true_strtolowercase($name);
+    $name = \Invntrm\true_strtocap($name);
     if (empty($name)) return '';
     $nameLib = new \NCLNameCaseRu();
     $nameLib->q($name);
@@ -1325,14 +1325,19 @@ function sanitize_validate_name($user_name, $required_full_name_level = 0)
                 break;
         }
     }
+    _d(['uname'=>$user_name, 'nname'=>$nameParts]);
     //
     // Strict checking part being there
     if ($required_full_name_level >= 1 && !$nameParts[0]) return false;
     if ($required_full_name_level >= 2 && !$nameParts[1]) return false;
     if ($required_full_name_level === 3 && !$nameParts[2]) return false;
     //
-    $name = trim(join(' ', $nameParts));
-    return $name;
+    $name_norm = trim(join(' ', $nameParts));
+    $nnc = count(preg_split('!\s+!', $name_norm));
+    $nc = count(preg_split('!\s+!', $name));
+    if ($nnc < $nc) return $name;
+    //
+    return $name_norm;
 }
 
 function sanitize_validate_email($email)
