@@ -230,7 +230,6 @@ function buildPage($path, $params_origin = [])
         // $time = true_is_preg_match('s$', $redirect[0]) ? (int)preg_replace('!s$!','',$redirect[0]) * 1000 : $redirect[0];
         $time = $redirect[0];
         $location = $redirect[1];
-        _d(['_REDIR_',$time,$location]);
         $out = "<meta http-equiv='refresh' content='$time;$location'>" . $out;
     }
 
@@ -579,14 +578,14 @@ function varDumpRet($var, $isPretty = false)
     }
     else {
         ob_start();
-        var_dump($var);
+        var_export($var);
         return ob_get_clean();
     }
     return $out;
 }
 
 /**
- * @deprecated by prent_r($var, true)
+ * @deprecated by print_r($var, true)
  * @param $var
  *
  * @return string
@@ -1039,6 +1038,7 @@ class ExtendedException extends \Exception
     public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null)
     {
         if (!$description) $description = 'Нет описания';
+        if(!is_string($description)) $description = varDumpRet($description);
         parent::__construct($description, $numericCode, $previous);
         $this->codeExtended = ($codeExtended);
     }
@@ -1147,9 +1147,13 @@ function processException(\Exception $e, $endpoint = '', $endpoint_message = '',
 function sanitize_validate_name($user_name, $required_full_name_level = 0)
 {
     require_once __DIR__ . '/../../../vendor/igrizzli/NameCaseLib/Library/NCLNameCaseRu.php';
-    $name = preg_replace('!\s\s+!', ' ', trim($user_name));
+    $name = $user_name;
+    $name = str_replace('&nbsp;', ' ', $name);
+    $name = preg_replace('![^a-zа-яё\-\'\s]!iu', '', $name);
+    $name = preg_replace('!\s+!', ' ', trim($name));
+    $name = substr($name, 0, 256); // bad magic length const referenced with user DB's table
     $name = \Invntrm\transliterateCyr($name, true); // Latin to Cyrillic transliterate
-    $name = \Invntrm\true_strtolowercase($name);
+    $name = \Invntrm\true_strtocap($name);
     if (empty($name)) return '';
     $nameLib = new \NCLNameCaseRu();
     $nameLib->q($name);
@@ -1170,12 +1174,16 @@ function sanitize_validate_name($user_name, $required_full_name_level = 0)
     }
     //
     // Strict checking part being there
-    if($required_full_name_level >= 1 && !$namePart[0]) return false;
-    if($required_full_name_level >= 2 && !$namePart[1]) return false;
-    if($required_full_name_level === 3 && !$namePart[2]) return false;
+    if ($required_full_name_level >= 1 && !$nameParts[0]) return false;
+    if ($required_full_name_level >= 2 && !$nameParts[1]) return false;
+    if ($required_full_name_level === 3 && !$nameParts[2]) return false;
     //
-    $name = join(' ', $nameParts);
-    return $name;
+    $name_norm = trim(join(' ', $nameParts));
+    $nnc = count(preg_split('!\s+!', $name_norm));
+    $nc = count(preg_split('!\s+!', $name));
+    if ($nnc < $nc) return $name;
+    //
+    return $name_norm;
 }
 
 function sanitize_validate_email($email) {
