@@ -8,7 +8,9 @@ namespace Invntrm;
 
 define('ROOT', $_SERVER['DOCUMENT_ROOT'] . '/');
 define('SRV', ROOT . '_ass/');
-$C    = function ($a) { return $a; };
+$C = function ($a) {
+    return $a;
+};
 $_PUT = \Invntrm\get_parse_str(file_get_contents("php://input"));
 
 ///**
@@ -151,7 +153,7 @@ function getFNameStamp($fileMame, $isPathRewriteActive = false)
  * Substitution variables into placeholders in the $template
  *
  * @param string $template - Target text
- * @param        array     (mixed)[] $vars      - Set of variables
+ * @param        array (mixed)[] $vars      - Set of variables
  *
  * @return          string          - Specified result
  */
@@ -185,21 +187,28 @@ function parseMetaPage($str)
     return [$meta, $body,];
 }
 
-function buildPage($path, $params_origin = [])
+function buildPage($path, $params_origin = [], $white_page_list = null, $is_allow_view = true)
 {
-    if (!$path) {
+    if ($white_page_list && !$is_allow_view) {
+        if (!in_array($path, $white_page_list)) return buildPage('/401/');
+    }
+    $throw404 = function () {
+        header("Status: 404 Not Found");
         return buildPage('/404/');
+    };
+    if (!$path) {
+        return $throw404();
     }
     $defaultPrefix = '/_views';
     list($templateWithMeta, $pageDir, $pageName) = getFileContent($path, 'html', $defaultPrefix);
     if ($templateWithMeta === false) {
-        return buildPage('/404/');
+        return $throw404();
     }
     list($meta, $template) = parseMetaPage($templateWithMeta);
-    $out        = $template;
+    $out = $template;
     $pageObject = get_require($pageDir . $pageName, '', false, $params_origin); // try execute template's logic
-    $css        = getCss($pageDir . $pageName); // add css
-    $css        = "<style>/* $path */" . $css . "</style>\n";
+    $css = getCss($pageDir . $pageName); // add css
+    $css = "<style>/* $path */" . $css . "</style>\n";
     //                                                      // L  Inject   View secret       comment
     $params = [];
     $params = array_merge($params, $_REQUEST); // 5 DANGEROUS          add server constants
@@ -214,28 +223,27 @@ function buildPage($path, $params_origin = [])
     $paramMapping = (isset($pageObject['_PARAM_MAPPING_'])) ? $pageObject['_PARAM_MAPPING_'] : [];
     if (!isset($params['styles'])) {
         $params['styles'] = $css;
-    }
-    else {
+    } else {
         $params['styles'] = $css . $params['styles'];
     }
+    if (!empty($meta['title'])) $params['page-name'] = $meta['title'];
     if (isset($pageObject['_STOP_'])) {
         $stopRef = $pageObject['_STOP_']; // ref to redirect page or null for 404
         if (!$stopRef) {
-            return buildPage('/404/');
+            return $throw404();
         }
         header("Location: $stopRef");
     }
-    if(isset($params_origin['_REDIRECT_'])) {
+    if (isset($params_origin['_REDIRECT_'])) {
         $redirect = $params_origin['_REDIRECT_'];
         // $time = true_is_preg_match('s$', $redirect[0]) ? (int)preg_replace('!s$!','',$redirect[0]) * 1000 : $redirect[0];
         $time = $redirect[0];
         $location = $redirect[1];
         $out = "<meta http-equiv='refresh' content='$time;$location'>" . $out;
     }
-
     //
     // Replace recursive call placeholders
-    $out = preg_replace_callback('/@([a-z_\-\/]+?)@/i',
+    $out = preg_replace_callback('!' . '@([a-z_\-/\.0-9]+?)@' . '!i',
         function ($matches) use ($params, $pageDir, $defaultPrefix) {
             $match = $matches[1];
             if (!$pageDir || preg_match('!^/!', $match)) // if pageDir isn't set OR @placeholder@ start with /, than decide match absolute
@@ -249,9 +257,9 @@ function buildPage($path, $params_origin = [])
     $out = specifyTemplateExtended($out, $params, $paramMapping);
     if (isset($meta['base'])) { // if base tpl is declared
         $params['content'] = $out;
-        return buildPage($meta['base'], $params);
-    }
-    else
+        $basePath = true_is_preg_match('^/', $meta['base']) ? $meta['base'] : "{$pageDir}/{$meta['base']}";
+        return buildPage($basePath, $params);
+    } else
         return $out;
 }
 
@@ -261,8 +269,8 @@ function buildPage($path, $params_origin = [])
  * Substitution variables into placeholders in the $template
  *
  * @param string $template - Target text
- * @param        array     (mixed)[] $vars      - Set of variables
- * @param array  $paramMapping
+ * @param        array (mixed)[] $vars      - Set of variables
+ * @param array $paramMapping
  *
  * @return          string          - Specified result
  */
@@ -286,8 +294,7 @@ function specifyTemplateExtended($template, $vars = [], $paramMapping = [])
             if (!isset($vars[$matches[1]])) {
                 #bugReport2("specifyTemplate()", " placeholder '$matches[1]' haven't value");
                 return '';
-            }
-            else return $vars[$matches[1]];
+            } else return $vars[$matches[1]];
         },
         $out
     );
@@ -299,8 +306,7 @@ function specifyTemplateExtended($template, $vars = [], $paramMapping = [])
             if (!isset($vars[$matches[1]]) || !isset($vars[$matches[1]][$matches[2]])) {
                 bugReport2("specifyTemplate()", "placeholder '[ $matches[1] ][ $matches[2] ]' haven't value");
                 return '';
-            }
-            else
+            } else
                 return $vars[$matches[1]][$matches[2]];
         }
         , $out
@@ -336,8 +342,7 @@ function getFileContent($fileName__filePath, $defaultExtension, $defaultPrefix)
             $filePath .= '.' . ($defaultExtension ? $defaultExtension : 'html');
         }
         $template = (file_exists($filePath)) ? file_get_contents($filePath) : false;
-    }
-    else {
+    } else {
         $template = $fileName__filePath;
     }
     return [$template, dirname($filePath) . '/', preg_replace('!\..*?$!', '', basename($filePath))];
@@ -351,8 +356,8 @@ function getFileContent($fileName__filePath, $defaultExtension, $defaultPrefix)
  *
  * @param        $phpFileName
  * @param string $prefix
- * @param bool   $isStrict
- * @param array  $params
+ * @param bool $isStrict
+ * @param array $params
  *
  * @return array
  */
@@ -361,8 +366,7 @@ function get_require($phpFileName, $prefix = '', $isStrict = false, $params = []
     $phpFileName = $prefix . preg_replace('!/$!', '', $phpFileName) . '.php';
     if ($isStrict) {
         require($phpFileName);
-    }
-    else {
+    } else {
         @include($phpFileName);
     }
     if (isset($exports))
@@ -371,14 +375,14 @@ function get_require($phpFileName, $prefix = '', $isStrict = false, $params = []
         return [];
 }
 
-function getCss($path, $prefix = null, $isStrict = false)
+function getCss($path_origin, $prefix = '', $is_strict = false)
 {
-    $path        = $prefix . preg_replace('!/$!', '', $path) . '.css';
-    $isFileExist = is_file($path);
-    if ($isStrict) if (!$isFileExist) {
+    $path = $prefix . preg_replace('!/$!', '', $path_origin) . '.css';
+    $is_exist = is_file($path);
+    if ($is_strict && !$is_exist) {
         return false;
     }
-    if ($isFileExist)
+    if ($is_exist)
         return file_get_contents($path);
     else
         return '';
@@ -398,8 +402,7 @@ function getDirList($path, $excludeMimes = array(), $isDebug = false)
         // Закрываем директорию
         closedir($dir);
         return $out_arr;
-    }
-    else
+    } else
         return false;
 }
 
@@ -409,7 +412,7 @@ function getDirList($path, $excludeMimes = array(), $isDebug = false)
  */
 function getLogPath()
 {
-    $mode     = (IS_DEBUG_ALX === true) ? 'dev' : 'prod';
+    $mode = (IS_DEBUG_ALX === true) ? 'dev' : 'prod';
     $server_name = preg_replace('!^testdev\.!', '', $_SERVER['SERVER_NAME']);
     $log_path = "/var/www/logs/{$server_name}/{$mode}_logs/";
     exec("mkdir -p {$log_path}");
@@ -420,7 +423,7 @@ function getLogPath()
  * version 2
  *
  * @param        $text
- * @param bool   $isTrace
+ * @param bool $isTrace
  * @param string $logName
  */
 function _d($text, $isTrace = false, $logName = 'check')
@@ -462,7 +465,7 @@ function bugReport2($type, $text)
  */
 function getFileInfo($filePath, $typeInfo = FILEINFO_MIME_TYPE)
 {
-    $fInfo       = finfo_open();
+    $fInfo = finfo_open();
     $fInfoResult = fInfo_file($fInfo, $filePath, $typeInfo);
     return $fInfoResult;
 }
@@ -575,8 +578,7 @@ function varDumpRet($var, $isPretty = false)
         $out = preg_replace('!\n!', ' ', $out);
         $out = preg_replace('!\[(.*?)\]!', '"$1"', $out);
         $out = preg_replace('!Array\s*\((.*)\)!i', '[$1]', $out);
-    }
-    else {
+    } else {
         ob_start();
         var_export($var);
         return ob_get_clean();
@@ -634,7 +636,7 @@ function array_filter_bwLists($array, $whiteList = [], $blackList = [])
 function array_filter_bwListsByKeys($array, $whiteList = [], $blackList = [])
 {
     foreach (['whiteList', 'blackList'] as $type) {
-        $type2  = $type . 'KeyVal';
+        $type2 = $type . 'KeyVal';
         $$type2 = [];
         if (!$$type) $$type = [];
         foreach ($$type as $item) {
@@ -770,7 +772,7 @@ function mailProject($message, $to, $fromName, $consts, $theme)
     $fromName = transliterateCyr($fromName);
     $fromName = $fromName ? "$fromName (via site)" : true_get($consts, 'PROJECT_NAME_STUB');
     $mailer = true_get($consts, 'MAILER_EMAIL');
-    $from     = "$fromName <{$mailer}>";
+    $from = "$fromName <{$mailer}>";
     //
     // MIME message type
     $headers
@@ -780,7 +782,7 @@ function mailProject($message, $to, $fromName, $consts, $theme)
     //
     // Message subject
     $uniqueId = uniqid('#');
-    $subject  = "$theme $uniqueId";
+    $subject = "$theme $uniqueId";
     //
     // Send mail
     ini_set("SMTP", "localhost");
@@ -801,8 +803,8 @@ function mailProject($message, $to, $fromName, $consts, $theme)
  * Note: the $add_dashes option will increase the length of the password by
  * floor(sqrt(N)) characters.
  *
- * @param int    $length
- * @param bool   $add_dashes
+ * @param int $length
+ * @param bool $add_dashes
  * @param string $available_sets - {l:a-z,  u:A-Z,  d:2-9,  s:specials}
  *
  * @return string
@@ -819,7 +821,7 @@ function generateStrongPassword($length = 9, $add_dashes = false, $available_set
     if (strpos($available_sets, 's') !== false)
         $sets[] = '!@#$%&*?';
 
-    $all      = '';
+    $all = '';
     $password = '';
     foreach ($sets as $set) {
         $password .= $set[array_rand(str_split($set))];
@@ -885,7 +887,7 @@ function recursiveDegenerateArrOptimize($arr)
  */
 function transliterateCyr($string, $isBackward = false)
 {
-    $roman    = ["Sch", "sch", 'Yo', 'Zh', 'Kh', 'Ts', 'Ch', 'Sh', 'Yu', 'ya', 'yo', 'zh', 'kh', 'ts', 'ch', 'sh', 'yu', 'ya', 'A', 'B', 'V', 'G', 'D', 'E', 'Z', 'I', 'Y', 'K', 'L', 'M', 'N', 'O', 'P', 'R', 'S', 'T', 'U', 'F', '', 'Y', '', 'E', 'a', 'b', 'v', 'g', 'd', 'e', 'z', 'i', 'y', 'k', 'l', 'm', 'n', 'o', 'p', 'r', 's', 't', 'u', 'f', '', 'y', '', 'e'];
+    $roman = ["Sch", "sch", 'Yo', 'Zh', 'Kh', 'Ts', 'Ch', 'Sh', 'Yu', 'ya', 'yo', 'zh', 'kh', 'ts', 'ch', 'sh', 'yu', 'ya', 'A', 'B', 'V', 'G', 'D', 'E', 'Z', 'I', 'Y', 'K', 'L', 'M', 'N', 'O', 'P', 'R', 'S', 'T', 'U', 'F', '', 'Y', '', 'E', 'a', 'b', 'v', 'g', 'd', 'e', 'z', 'i', 'y', 'k', 'l', 'm', 'n', 'o', 'p', 'r', 's', 't', 'u', 'f', '', 'y', '', 'e'];
     $cyrillic = ["Щ", "щ", 'Ё', 'Ж', 'Х', 'Ц', 'Ч', 'Ш', 'Ю', 'я', 'ё', 'ж', 'х', 'ц', 'ч', 'ш', 'ю', 'я', 'А', 'Б', 'В', 'Г', 'Д', 'Е', 'З', 'И', 'Й', 'К', 'Л', 'М', 'Н', 'О', 'П', 'Р', 'С', 'Т', 'У', 'Ф', 'Ь', 'Ы', 'Ъ', 'Э', 'а', 'б', 'в', 'г', 'д', 'е', 'з', 'и', 'й', 'к', 'л', 'м', 'н', 'о', 'п', 'р', 'с', 'т', 'у', 'ф', 'ь', 'ы', 'ъ', 'э'];
     return $isBackward ? str_replace($roman, $cyrillic, $string) : str_replace($cyrillic, $roman, $string);
 }
@@ -906,8 +908,8 @@ function transliterateCyr($string, $isBackward = false)
  */
 function encrypt_data($key, $text)
 {
-    $iv_size        = mcrypt_get_iv_size(MCRYPT_RIJNDAEL_256, MCRYPT_MODE_ECB);
-    $iv             = mcrypt_create_iv($iv_size, MCRYPT_RAND);
+    $iv_size = mcrypt_get_iv_size(MCRYPT_RIJNDAEL_256, MCRYPT_MODE_ECB);
+    $iv = mcrypt_create_iv($iv_size, MCRYPT_RAND);
     $encrypted_text = mcrypt_encrypt(MCRYPT_RIJNDAEL_256, $key, $text, MCRYPT_MODE_ECB, $iv);
     return [$encrypted_text, $iv];
 }
@@ -1003,10 +1005,10 @@ class Exception extends \Exception
     protected $codeExtended;
 
     /**
-     * @param string     $codeExtended
-     * @param string     $description
-     * @param \Exception $previous    [optional]
-     * @param int        $numericCode [optional]
+     * @param string $codeExtended
+     * @param string $description
+     * @param \Exception $previous [optional]
+     * @param int $numericCode [optional]
      */
     public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null)
     {
@@ -1030,15 +1032,15 @@ class ExtendedException extends \Exception
     protected $codeExtended;
 
     /**
-     * @param string     $codeExtended
-     * @param string     $description
-     * @param \Exception $previous    [optional]
-     * @param int        $numericCode [optional]
+     * @param string $codeExtended
+     * @param string $description
+     * @param \Exception $previous [optional]
+     * @param int $numericCode [optional]
      */
     public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null)
     {
         if (!$description) $description = 'Нет описания';
-        if(!is_string($description)) $description = varDumpRet($description);
+        if (!is_string($description)) $description = varDumpRet($description);
         parent::__construct($description, $numericCode, $previous);
         $this->codeExtended = ($codeExtended);
     }
@@ -1064,10 +1066,10 @@ class ExtendedInvalidArgumentException extends \InvalidArgumentException
     protected $codeExtended;
 
     /**
-     * @param string     $codeExtended - string error identification
-     * @param string     $description  - string human readable description
-     * @param \Exception $previous     [optional] - previous exception pointer
-     * @param int        $numericCode  [optional] - number error identification
+     * @param string $codeExtended - string error identification
+     * @param string $description - string human readable description
+     * @param \Exception $previous [optional] - previous exception pointer
+     * @param int $numericCode [optional] - number error identification
      */
     public function __construct($codeExtended, $description = null, $previous = null, $numericCode = null, $arguments = null)
     {
@@ -1110,27 +1112,27 @@ function processException(\Exception $e, $endpoint = '', $endpoint_message = '',
     \Invntrm\bugReport2($endpoint, ['Pre error record', $endpoint, $endpoint_message, $endpoint_code_extended, $e]);
 
     global $_PUT;
-    $method         = strtolower($_SERVER['REQUEST_METHOD']);
+    $method = strtolower($_SERVER['REQUEST_METHOD']);
     $e_str_error_id = (method_exists($e, 'getCodeExtended') ? $e->getCodeExtended() : $e->getCode());
-    $e_str_message  = $e->getMessage();
+    $e_str_message = $e->getMessage();
     //
     $str_error_id = $endpoint_code_extended ? $endpoint_code_extended : $e_str_error_id;
-    $str_message  = $endpoint_message ? $endpoint_message : $e->getMessage();
-    $num_code     = $e->getCode();
+    $str_message = $endpoint_message ? $endpoint_message : $e->getMessage();
+    $num_code = $e->getCode();
     $error_object = [
-        'error'          => $str_error_id,
-        'error_message'  => $str_message,
+        'error' => $str_error_id,
+        'error_message' => $str_message,
         'request_method' => $method,
         'request_string' => $endpoint,
-        'query_params'   => $_REQUEST,
+        'query_params' => $_REQUEST,
         'payload_params' => $_PUT
     ];
     if (IS_DEBUG_ALX === true) {
         $error_object = array_merge($error_object, [
             'error_debug' => [
-                'error'         => $e_str_error_id,
+                'error' => $e_str_error_id,
                 'error_message' => $e_str_message,
-                'error_debug'   => $e
+                'error_debug' => $e
             ]
         ]);
     }
@@ -1158,7 +1160,7 @@ function sanitize_validate_name($user_name, $required_full_name_level = 0)
     $nameLib = new \NCLNameCaseRu();
     $nameLib->q($name);
     $nameParts = ['', '', ''];
-    $nom       = \NCL::$IMENITLN; // nominative -- Именительный падеж
+    $nom = \NCL::$IMENITLN; // nominative -- Именительный падеж
     foreach ($nameLib->getWordsArray() as $namePart) {
         switch ($namePart->getNamePart()) {
             case('N'):
@@ -1186,12 +1188,14 @@ function sanitize_validate_name($user_name, $required_full_name_level = 0)
     return $name_norm;
 }
 
-function sanitize_validate_email($email) {
+function sanitize_validate_email($email)
+{
     $email = true_strtolowercase(filter_var(filter_input(INPUT_POST, 'email', FILTER_VALIDATE_EMAIL), FILTER_SANITIZE_EMAIL));
     return $email;
 }
 
-function sanitize_validate_phone($phone) {
+function sanitize_validate_phone($phone)
+{
     $phone = preg_replace('/^\s*(8|7)/', '+7', preg_replace('/[^0-9]/', '', $phone));
 }
 
@@ -1203,8 +1207,8 @@ function sanitize_validate_phone($phone) {
  * @see http://de.gravatar.com/site/implement/images/
  *
  * @param int|string $s Size in pixels, defaults to 50px [ 1 - 2048 ]
- * @param string     $d Default image set to use [ 404 | mm | identicon | monsterid | wavatar ]
- * @param string     $r Maximum rating (inclusive) [ g | pg | r | x ]
+ * @param string $d Default image set to use [ 404 | mm | identicon | monsterid | wavatar ]
+ * @param string $r Maximum rating (inclusive) [ g | pg | r | x ]
  * @source http://gravatar.com/site/implement/images/php/
  *
  * @return string
@@ -1216,8 +1220,7 @@ function get_gravatar_image_url($email, $s = 50, $d = 'mm', $r = 'g')
         // http://www.gravatar.com/avatar/205e460b479e2e5b48aec07710c08d50?s=80&d=mm&r=g
         // note: the url does NOT have something like .jpg
         return 'http://www.gravatar.com/avatar/' . md5(strtolower(trim($email))) . "?s=$s&d=$d&r=$r&f=y";
-    }
-    else {
+    } else {
         return '';
     }
 }
