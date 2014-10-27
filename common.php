@@ -337,8 +337,11 @@ function parseMetaPage($str)
  *
  * @return mixed|string
  */
-function buildPage($path, $params_origin = [])
+function buildPage($path, $params_origin = [], $white_page_list = null, $is_allow_view = true)
 {
+    if ($white_page_list && !$is_allow_view) {
+        if (!in_array($path, $white_page_list)) return buildPage('/401/');
+    }
     $throw404 = function () {
         header("Status: 404 Not Found");
         return buildPage('/404/');
@@ -374,12 +377,20 @@ function buildPage($path, $params_origin = [])
     else {
         $params['styles'] = $css . $params['styles'];
     }
+    if(!empty($meta['title'])) $params['page-name'] = $meta['title'];
     if (isset($pageObject['_STOP_'])) {
         $stopRef = $pageObject['_STOP_']; // ref to redirect page or null for 404
         if (!$stopRef) {
             return $throw404();
         }
         header("Location: $stopRef");
+    }
+    if(isset($params_origin['_REDIRECT_'])) {
+        $redirect = $params_origin['_REDIRECT_'];
+        // $time = true_is_preg_match('s$', $redirect[0]) ? (int)preg_replace('!s$!','',$redirect[0]) * 1000 : $redirect[0];
+        $time = $redirect[0];
+        $location = $redirect[1];
+        $out = "<meta http-equiv='refresh' content='$time;$location'>" . $out;
     }
     //
     // Replace recursive call placeholders
@@ -394,7 +405,7 @@ function buildPage($path, $params_origin = [])
         },
         $out
     );
-    $out = specifyTemplateExtended($out, $params, $paramMapping, $pageDir);
+    $out = specifyTemplateExtended($out, $params, $paramMapping);
     if (isset($meta['base'])) { // if base tpl is declared
         $params['content'] = $out;
         $basePath          = true_is_preg_match('^/', $meta['base']) ? $meta['base'] : "{$pageDir}/{$meta['base']}";
