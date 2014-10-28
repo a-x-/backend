@@ -189,8 +189,9 @@ function parseMetaPage($str)
 
 function buildPage($path, $params_origin = [], $white_page_list = null, $is_allow_view = true)
 {
-    if ($white_page_list && !$is_allow_view) {
-        if (!in_array($path, $white_page_list)) return buildPage('/401/');
+    if ($white_page_list && !$is_allow_view && !in_array($path, $white_page_list)) {
+        header("Status: 401 Access denied");
+        return buildPage('/401/');
     }
     $throw404 = function () {
         header("Status: 404 Not Found");
