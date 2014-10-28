@@ -438,7 +438,7 @@ class AlxMq extends Mq
      */
     protected function parse($reqLine, &$sigma, &$params, $isLog = false)
     {
-        $reqLine = preg_replace(['/order/i', '/group/i'], '`$0`', $reqLine);
+        $reqLine = preg_replace(['/(\W)(order)(\W)/i', '/(\W)(group)(\W)/i'], '$1`$2`$3', $reqLine);
         // Declaration list. *NOT TO DELETE*
         //
         // $part = array();
