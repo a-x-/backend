@@ -340,11 +340,11 @@ function parseMetaPage($str)
 function buildPage($path, $params_origin = [], $white_page_list = null, $is_allow_view = true)
 {
     if ($white_page_list && !$is_allow_view) {
-        if (!in_array($path, $white_page_list)) return buildPage('/401/');
+        if (!in_array($path, $white_page_list)) return buildPage('/401/', $params_origin);
     }
-    $throw404 = function () {
+    $throw404 = function () use ($params_origin) {
         header("Status: 404 Not Found");
-        return buildPage('/404/');
+        return buildPage('/404/', $params_origin);
     };
     if (!$path) {
         return $throw404();
