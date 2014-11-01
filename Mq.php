@@ -461,6 +461,8 @@ class AlxMq extends Mq
             if (preg_match('!^\d+$!', $part2)) {
                 $part2 = "id=$part2";
             }
+            $part2 = preg_replace('/!=\s*null/i',' is not null',$part2);
+            $part2 = preg_replace('/=\s*null/i',' is null',$part2);
             return $part2;
         };
         if (!$isLog) $isLog = $this->isLog;

@@ -1226,3 +1226,29 @@ function get_gravatar_image_url($email, $s = 50, $d = 'mm', $r = 'g')
     }
 }
 
+/**
+ * Склонение числительных (для русского языка)
+ *
+ * Принимает число и выбирает соответствующее склонение числительного. Всего 3 варианта, которые
+ * соответствуют числам 1, 2 и 5.
+ *
+ * @param int $number
+ * @param string $one
+ * @param string $two
+ * @param string $five
+ * @return string
+ */
+function decline_numeral ($number, $one, $two, $five) {
+    if (($number - $number % 10) % 100 != 10) {
+        if ($number % 10 == 1) { // trailing 1
+            $result = $one;
+        } elseif ($number % 10 >= 2 && $number % 10 <= 4) { // trailing 2, 3 or 4
+            $result = $two;
+        } else {
+            $result = $five;
+        }
+    } else {
+        $result = $five;
+    }
+    return $result;
+}
