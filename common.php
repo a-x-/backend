@@ -858,9 +858,20 @@ function akv2okv($numberingArray)
     array_walk($numberingArray, function (&$item) use (&$associatedArray) {
         if (!is_array($item)) return;
         $associatedArray[$item[0]] = $item[1];
-        //        unset($item);
     });
     return $associatedArray;
+}
+
+function mail_feedback($message, $from_name, $from_email, $support_mail, $consts, $theme = 'Поддержка', $unique_mask = '[ticket #%rand%]')
+{
+    $message = strip_tags($message);
+    $message = preg_replace("/\r/", '', $message);
+    $message = str_replace('\n', "\n", $message);
+    $message = preg_replace("/\n/", "<br>\n", $message);
+    //
+    _d("$from_name<$from_email> >\n" . $message . "\n\n", false, 'feedback');
+    $consts['mailer-email'] = $from_email;
+    return mailProject($message, $support_mail . ',' . $from_email, $from_name, $consts, $theme, $unique_mask);
 }
 
 /**
@@ -908,18 +919,23 @@ function mailDump($data, $to, $consts, $theme)
  *
  * @param $message
  * @param $to
- * @param $fromName
+ * @param $from_name
  * @param $consts
  * @param $theme
+ * @param $uniqueMask string - null if no unique or pattern like this: '[ticket #%rand%]'
  *
  * @return bool
  */
-function mailProject($message, $to, $fromName, $consts, $theme)
+function mailProject($message, $to, $from_name, $consts, $theme, $uniqueMask = null)
 {
     $mailer = isset($consts['mailer-email']) ? $consts['mailer-email'] : $consts['mailer'];
-    $fromName = transliterateCyr($fromName);
-    $fromName = $fromName ? "$fromName (via site)" : $consts['name-stub'];
-    $from     = "$fromName <{$mailer}>";
+    $from_name = transliterateCyr($from_name);
+    $from_name = $from_name ? "$from_name (via site)" : $consts['name-stub'];
+    $from_name = strip_tags($from_name);
+    $from     = "$from_name <{$mailer}>";
+    //
+    $message = wordwrap($message, 120);
+    $message = preg_replace('!^\.!', '..', $message);
     //
     // MIME message type
     $headers
@@ -928,8 +944,9 @@ function mailProject($message, $to, $fromName, $consts, $theme)
         . "From: $from\r\n";
     //
     // Message subject
-    $uniqueId = uniqid('#');
-    $subject  = "$theme $uniqueId";
+    if ($uniqueMask) {
+        $subject  = $theme . ' ' . specifyTemplate($uniqueMask, ['rand' => uniqid()]);
+    }
     //
     // Send mail
     ini_set("SMTP", "localhost");
@@ -1112,14 +1129,14 @@ function decrypt_data($key, $iv, $text)
  * echo format('I\'m not a {foo} nor a {}', array('foo' => 'fool', 'bar'));
  *
  */
-function format($msg, $vars)
+function format($message, $vars)
 {
     $vars = (array)$vars;
 
-    $msg = preg_replace_callback('#\{\}#', function ($r) {
+    $message = preg_replace_callback('#\{\}#', function ($r) {
         static $i = 0;
         return '{' . ($i++) . '}';
-    }, $msg);
+    }, $message);
 
     return str_replace(
         array_map(function ($k) {
@@ -1128,7 +1145,7 @@ function format($msg, $vars)
 
         array_values($vars),
 
-        $msg
+        $message
     );
 }
 
