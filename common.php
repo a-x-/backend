@@ -11,8 +11,9 @@ define('SRV', ROOT . '_ass/');
 $C = function ($a) {
     return $a;
 };
-$_PUT = \Invntrm\get_parse_str(file_get_contents("php://input"));
-
+$_RAW_PAYLOAD = file_get_contents("php://input");
+$_PAYLOAD = \Invntrm\get_parse_str($_RAW_PAYLOAD);
+$_PUT = $_PAYLOAD;
 ///**
 // * Convert error messages to Exceptions
 // *
@@ -1112,7 +1113,7 @@ function processException(\Exception $e, $endpoint = '', $endpoint_message = '',
 {
     \Invntrm\bugReport2($endpoint, ['Pre error record', $endpoint, $endpoint_message, $endpoint_code_extended, $e]);
 
-    global $_PUT;
+    global $_RAW_PAYLOAD;
     $method = strtolower($_SERVER['REQUEST_METHOD']);
     $e_str_error_id = (method_exists($e, 'getCodeExtended') ? $e->getCodeExtended() : $e->getCode());
     $e_str_message = $e->getMessage();
@@ -1126,7 +1127,8 @@ function processException(\Exception $e, $endpoint = '', $endpoint_message = '',
         'request_method' => $method,
         'request_string' => $endpoint,
         'query_params' => $_REQUEST,
-        'payload_params' => $_PUT
+        'payload_params' => true_is_preg_match('json', $_SERVER['HTTP_CONTENT_TYPE'])
+            ? json_decode($_RAW_PAYLOAD, true) : $_PAYLOAD
     ];
     if (IS_DEBUG_ALX === true) {
         $error_object = array_merge($error_object, [
@@ -1251,4 +1253,18 @@ function decline_numeral ($number, $one, $two, $five) {
         $result = $five;
     }
     return $result;
+}
+
+/**
+ * @param $array
+ * @param $path
+ * @return array|mixed|null
+ */
+function array_deep_get($array, $path) {
+    $keys = preg_split('!\.!',$path);
+    foreach($keys as $key) {
+        if(!$array) return null;
+        $array = $array[$key];
+    }
+    return $array;
 }
